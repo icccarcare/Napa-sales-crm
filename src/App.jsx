@@ -141,12 +141,7 @@ function Fld({label,children}){return<div><label style={lbl}>{label}</label>{chi
 
 // ─── NAPA LOGO ────────────────────────────────────────────────────────────────
 function NapaLogo(){
-  return(
-    <div style={{display:"flex",alignItems:"center",gap:10}}>
-      <div style={{background:"#cc0000",borderRadius:6,padding:"5px 10px",fontFamily:"Arial Black,sans-serif",fontWeight:900,fontSize:16,color:"#fff",letterSpacing:"1px",lineHeight:1}}>NAPA</div>
-      <div style={{color:"#fff",fontWeight:800,fontSize:15,letterSpacing:"0.5px"}}>Auto Parts</div>
-    </div>
-  );
+  return <div/>;
 }
 
 // ─── INVENTORY PANEL ──────────────────────────────────────────────────────────
