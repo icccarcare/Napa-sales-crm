@@ -701,25 +701,24 @@ export default function App(){
     <div style={{fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",background:"#f1f5f9",minHeight:"100vh"}}>
 
       {/* ── HEADER ── */}
-      <div style={{background:"#1e293b",padding:"8px 16px",position:"sticky",top:0,zIndex:50,borderBottom:"3px solid #cc0000"}}>
-        <div style={{maxWidth:1440,margin:"0 auto"}}>
-          <div style={{display:"flex",gap:10,alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-            <div style={{color:"#cc0000",fontWeight:900,fontSize:17,fontFamily:"Arial Black,sans-serif",letterSpacing:"1px",flexShrink:0}}>NAPA</div>
-            <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"flex-end"}}>
-              {[["🏢",stats.total,"Accts"],["✅",stats.active,"Cust"],["📅",stats.overdue>0?stats.overdue:stats.followups,stats.overdue>0?"Overdue":"Follow"],["🔴",stats.reorders,"Reorder"]].map(([icon,val,label])=>(
-                <div key={label} style={{textAlign:"center",flexShrink:0}}>
-                  <div style={{color:label==="Reorder"&&stats.reorders>0?"#ef4444":label==="Overdue"?"#fbbf24":"#fff",fontWeight:800,fontSize:14,lineHeight:1}}>{icon}{val}</div>
-                  <div style={{color:"#475569",fontSize:9,fontWeight:600,textTransform:"uppercase"}}>{label}</div>
-                </div>
-              ))}
-            </div>
+      <div style={{background:"#1e293b",padding:"0 20px",position:"sticky",top:0,zIndex:50,borderBottom:"3px solid #cc0000"}}>
+        <div style={{maxWidth:1440,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:60,gap:16}}>
+          {/* Stats */}
+          <div style={{display:"flex",gap:20,alignItems:"center",flexShrink:0}}>
+            {[["🏢",stats.total,"Accounts"],["✅",stats.active,"Customers"],["📅",stats.overdue>0?`${stats.overdue} overdue`:stats.followups,"Follow-ups"],["🔴",stats.reorders,"Reorders"]].map(([icon,val,label])=>(
+              <div key={label} style={{textAlign:"center"}}>
+                <div style={{color:label==="Reorders"&&stats.reorders>0?"#ef4444":label==="Follow-ups"&&stats.overdue>0?"#fbbf24":"#fff",fontWeight:800,fontSize:16,lineHeight:1}}>{icon} {val}</div>
+                <div style={{color:"#475569",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>{label}</div>
+              </div>
+            ))}
           </div>
-          <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:2}}>
-            <button onClick={()=>setShowDash(true)}  style={{...btn("#334155"),fontSize:11,padding:"6px 10px",whiteSpace:"nowrap",flexShrink:0}}>📊 Dash</button>
-            <button onClick={()=>setShowCalls(true)} style={{...btn(stats.overdue>0?"#d97706":"#334155"),fontSize:11,padding:"6px 10px",whiteSpace:"nowrap",flexShrink:0}}>📋 Calls{stats.overdue>0?` (${stats.overdue})`:""}</button>
-            <button onClick={()=>setShowRoute(true)} style={{...btn("#334155"),fontSize:11,padding:"6px 10px",whiteSpace:"nowrap",flexShrink:0}}>🗺️ Route</button>
-            <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?"#dc2626":"#334155"),fontSize:11,padding:"6px 10px",whiteSpace:"nowrap",flexShrink:0}}>📦 Inv{stats.reorders>0?` (${stats.reorders})`:""}</button>
-            <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:11,padding:"6px 10px",whiteSpace:"nowrap",flexShrink:0}}>➕ Add</button>
+          {/* Buttons */}
+          <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+            <button onClick={()=>setShowDash(true)}  style={{...btn("#334155"),fontSize:12,padding:"8px 14px"}}>📊 Dashboard</button>
+            <button onClick={()=>setShowCalls(true)} style={{...btn(stats.overdue>0?"#d97706":"#334155"),fontSize:12,padding:"8px 14px"}}>📋 Call List{stats.overdue>0?` (${stats.overdue})`:""}</button>
+            <button onClick={()=>setShowRoute(true)} style={{...btn("#334155"),fontSize:12,padding:"8px 14px"}}>🗺️ Route</button>
+            <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?"#dc2626":"#334155"),fontSize:12,padding:"8px 14px"}}>📦 Inventory{stats.reorders>0?` (${stats.reorders})`:""}</button>
+            <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:12,padding:"8px 14px"}}>➕ Add</button>
           </div>
         </div>
       </div>
