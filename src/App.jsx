@@ -879,6 +879,8 @@ export default function App(){
     </div>
   );
   if(supabase && !user) return <LoginScreen onLogin={setUser}/>;
+  // Safety check - ensure customers is always a valid array
+  if(!Array.isArray(customers)) return <div>Initializing...</div>;
 
   const filtered=useMemo(()=>{
     let list=activeTab==="stocking"?customers.filter(c=>c.isStocking):customers;
@@ -895,14 +897,19 @@ export default function App(){
     return list;
   },[customers,search,townF,priF,stsF,sortBy,activeTab]);
 
-  const stats=useMemo(()=>({
-    total:customers.length,
-    active:customers.filter(c=>c.status==="Customer"||c.status==="Active").length,
-    followups:customers.filter(c=>c.nextFollowUp).length,
-    stocking:customers.filter(c=>c.isStocking).length,
-    reorders:customers.filter(c=>c.isStocking).flatMap(c=>(c.inventory||[]).filter(i=>i.currentStock<i.parLevel)).length,
-    overdue:customers.filter(c=>c.nextFollowUp&&c.nextFollowUp<today()).length,
-  }),[customers]);
+  const stats=useMemo(()=>{
+    try {
+      const safeCustomers = Array.isArray(customers) ? customers : [];
+      return {
+        total:safeCustomers.length,
+        active:safeCustomers.filter(c=>c.status==="Customer"||c.status==="Active").length,
+        followups:safeCustomers.filter(c=>c.nextFollowUp).length,
+        stocking:safeCustomers.filter(c=>c.isStocking).length,
+        reorders:safeCustomers.filter(c=>c.isStocking).flatMap(c=>Array.isArray(c.inventory)?c.inventory.filter(i=>Number(i.currentStock)<Number(i.parLevel)):[]).length,
+        overdue:safeCustomers.filter(c=>c.nextFollowUp&&c.nextFollowUp<today()).length,
+      };
+    } catch(e) { return {total:0,active:0,followups:0,stocking:0,reorders:0,overdue:0}; }
+  },[customers]);
 
   return(
     <div style={{fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",background:"#f1f5f9",minHeight:"100vh"}}>
