@@ -703,8 +703,9 @@ function LoginScreen({onLogin}){
     try {
       if(mode==="login"){
         const sb=await getSupabaseAsync(); if(!sb){setError('Service unavailable');setLoading(false);return;}
-        const {error:e} = await sb.auth.signInWithPassword({email,password});
+        const {data,error:e} = await sb.auth.signInWithPassword({email,password});
         if(e) setError(e.message);
+        else if(data?.user?.email) onLogin(data.user.email);
       } else if(mode==="signup"){
         const sb2=await getSupabaseAsync();
         const {error:e} = await sb2.auth.signUp({email,password});
@@ -754,7 +755,7 @@ function LoginScreen({onLogin}){
 
 export default function App(){
   const [user,setUser]             = useState(null);
-  const [authChecked,setAuthChecked] = useState(!SUPABASE_URL || !SUPABASE_ANON_KEY); // skip if no supabase
+  const [authChecked,setAuthChecked] = useState(true); // start true, auth check happens async skip if no supabase
   const [customers,setCustomers]   = useState(INITIAL_CUSTOMERS);
   const [dbReady,setDbReady]       = useState(false);
   const [search,setSearch]         = useState("");
