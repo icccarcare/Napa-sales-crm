@@ -948,6 +948,16 @@ export default function App(){
     } catch(e) { return {total:0,active:0,followups:0,stocking:0,reorders:0,overdue:0}; }
   },[customers]);
 
+  // DEBUG: Minimal render to isolate crash
+  return(
+    <div style={{padding:40,fontFamily:"sans-serif"}}>
+      <h2 style={{color:"green"}}>✅ Auth works! User: {user?.email}</h2>
+      <p>Customers loaded: {customers.length}</p>
+      <p>Stats: {JSON.stringify(stats)}</p>
+      <button onClick={()=>getSupabaseAsync().then(sb=>sb&&sb.auth.signOut())}>Sign Out</button>
+    </div>
+  );
+  // ORIGINAL BELOW (disabled for debug)
   return(
     <div style={{fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",background:"#f1f5f9",minHeight:"100vh"}}>
 
