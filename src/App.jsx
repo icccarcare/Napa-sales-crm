@@ -701,19 +701,18 @@ export default function App(){
     <div style={{fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",background:"#f1f5f9",minHeight:"100vh"}}>
 
       {/* ── HEADER ── */}
-      <div style={{background:"#1e293b",padding:"0 20px",position:"sticky",top:0,zIndex:50,borderBottom:"3px solid #cc0000"}}>
-        <div style={{maxWidth:1440,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:60,gap:16}}>
-          {/* Stats */}
-          <div style={{display:"flex",gap:20,alignItems:"center",flexShrink:0}}>
+      <div style={{background:"#1e293b",position:"sticky",top:0,zIndex:50,borderBottom:"3px solid #cc0000"}}>
+        {/* Desktop header — single row */}
+        <div style={{display:"none",maxWidth:1440,margin:"0 auto",padding:"0 24px",height:64,alignItems:"center",justifyContent:"space-between",gap:16}} className="desktop-header">
+          <div style={{display:"flex",gap:24,alignItems:"center"}}>
             {[["🏢",stats.total,"Accounts"],["✅",stats.active,"Customers"],["📅",stats.overdue>0?`${stats.overdue} overdue`:stats.followups,"Follow-ups"],["🔴",stats.reorders,"Reorders"]].map(([icon,val,label])=>(
               <div key={label} style={{textAlign:"center"}}>
-                <div style={{color:label==="Reorders"&&stats.reorders>0?"#ef4444":label==="Follow-ups"&&stats.overdue>0?"#fbbf24":"#fff",fontWeight:800,fontSize:16,lineHeight:1}}>{icon} {val}</div>
-                <div style={{color:"#475569",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>{label}</div>
+                <div style={{color:label==="Reorders"&&stats.reorders>0?"#ef4444":label==="Follow-ups"&&stats.overdue>0?"#fbbf24":"#fff",fontWeight:800,fontSize:17,lineHeight:1}}>{icon} {val}</div>
+                <div style={{color:"#94a3b8",fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginTop:3}}>{label}</div>
               </div>
             ))}
           </div>
-          {/* Buttons */}
-          <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+          <div style={{display:"flex",gap:7,alignItems:"center"}}>
             <button onClick={()=>setShowDash(true)}  style={{...btn("#334155"),fontSize:12,padding:"8px 14px"}}>📊 Dashboard</button>
             <button onClick={()=>setShowCalls(true)} style={{...btn(stats.overdue>0?"#d97706":"#334155"),fontSize:12,padding:"8px 14px"}}>📋 Call List{stats.overdue>0?` (${stats.overdue})`:""}</button>
             <button onClick={()=>setShowRoute(true)} style={{...btn("#334155"),fontSize:12,padding:"8px 14px"}}>🗺️ Route</button>
@@ -721,7 +720,31 @@ export default function App(){
             <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:12,padding:"8px 14px"}}>➕ Add</button>
           </div>
         </div>
+        {/* Mobile header — two rows */}
+        <div style={{padding:"10px 14px 8px"}} className="mobile-header">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            {[["🏢",stats.total,"Accounts"],["✅",stats.active,"Customers"],["📅",stats.overdue>0?stats.overdue:stats.followups,"Follow-ups"],["🔴",stats.reorders,"Reorders"]].map(([icon,val,label])=>(
+              <div key={label} style={{textAlign:"center"}}>
+                <div style={{color:label==="Reorders"&&stats.reorders>0?"#ef4444":label==="Follow-ups"&&stats.overdue>0?"#fbbf24":"#fff",fontWeight:800,fontSize:15,lineHeight:1}}>{icon} {val}</div>
+                <div style={{color:"#94a3b8",fontSize:10,fontWeight:600,textTransform:"uppercase",marginTop:3}}>{label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:5}}>
+            <button onClick={()=>setShowDash(true)}  style={{...btn("#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>📊<br/>Dash</button>
+            <button onClick={()=>setShowCalls(true)} style={{...btn(stats.overdue>0?"#d97706":"#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>📋<br/>Calls</button>
+            <button onClick={()=>setShowRoute(true)} style={{...btn("#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>🗺️<br/>Route</button>
+            <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?"#dc2626":"#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>📦<br/>Inv{stats.reorders>0?` ${stats.reorders}`:""}</button>
+            <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>➕<br/>Add</button>
+          </div>
+        </div>
       </div>
+      <style>{`
+        @media (min-width: 640px) {
+          .desktop-header { display: flex !important; }
+          .mobile-header { display: none !important; }
+        }
+      `}</style>
 
       {/* ── TABS ── */}
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 24px"}}>
