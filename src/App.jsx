@@ -97,7 +97,7 @@ const INITIAL_CUSTOMERS = [
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const STATUSES   = ["","Customer","Active","Prospect","Warm Lead","Cold","Not Interested"];
 const PRIORITIES = ["High","Medium","Low"];
-const ALL_TOWNS  = ["All Towns",...Array.from(new Set(INITIAL_CUSTOMERS.map(c=>c.town))).sort()];
+const ALL_TOWNS  = ["All Towns",...Array.from(new Set(INITIAL_CUSTOMERS.map(c=>c.town||"").filter(Boolean))).sort()];
 
 const priorityConfig = {
   High:   {bg:"#fee2e2",text:"#991b1b",dot:"#ef4444"},
@@ -153,7 +153,8 @@ function NapaLogo(){
 
 // ─── INVENTORY PANEL ──────────────────────────────────────────────────────────
 function InvPanel({customer,onUpdate}){
-  const [items,setItems]=useState(customer.inventory||[]);
+  const safeInventory = Array.isArray(customer.inventory) ? customer.inventory : [];
+  const [items,setItems]=useState(safeInventory);
   const [np,setNp]=useState({partNum:"",description:"",parLevel:"",currentStock:""});
   const save=upd=>{setItems(upd);onUpdate({...customer,inventory:upd});};
   const add=()=>{if(!np.description)return;save([...items,{id:`inv-${Date.now()}`,partNum:np.partNum,description:np.description,parLevel:parseInt(np.parLevel)||0,currentStock:parseInt(np.currentStock)||0}]);setNp({partNum:"",description:"",parLevel:"",currentStock:""});};
@@ -762,25 +763,27 @@ export default function App(){
 
   const loadCustomers = async () => {
     if(!supabase) return;
-    const {data,error} = await supabase.from("customers").select("*").order("name");
-    if(error){ console.error("Load error:",error); return; }
-    if(data && data.length > 0){
-      // Map DB rows back to app format
-      const mapped = data.map(r=>({
-        id: r.id, name: r.name, type: r.type, town: r.town,
-        address: r.address, fullAddress: r.full_address, phone: r.phone,
-        contact: r.contact, email: r.email, rating: r.rating, reviews: r.reviews||0,
-        priority: r.priority, status: r.status, acctNum: r.acct_num||"",
-        monthlySpend: r.monthly_spend||"", supplier: r.supplier||"",
-        lastVisit: r.last_visit||"", lastCall: r.last_call||"",
-        nextFollowUp: r.next_follow_up||"", notes: r.notes||"",
-        relScore: r.rel_score||"", isStocking: r.is_stocking||false,
-        inventory: r.inventory||[]
-      }));
-      setCustomers(mapped);
-    } else {
-      // First run — seed the database with initial customers
-      await seedDatabase();
+    try {
+      const {data,error} = await supabase.from("customers").select("*").order("name");
+      if(error){ console.error("Load error:",error); setDbReady(true); return; }
+      if(data && data.length > 0){
+        const mapped = data.map(r=>({
+          id: r.id||Date.now(), name: r.name||"", type: r.type||"", town: r.town||"",
+          address: r.address||"", fullAddress: r.full_address||"", phone: r.phone||"",
+          contact: r.contact||"", email: r.email||"", rating: r.rating||"", reviews: r.reviews||0,
+          priority: r.priority||"High", status: r.status||"", acctNum: r.acct_num||"",
+          monthlySpend: r.monthly_spend||"", supplier: r.supplier||"",
+          lastVisit: r.last_visit||"", lastCall: r.last_call||"",
+          nextFollowUp: r.next_follow_up||"", notes: r.notes||"",
+          relScore: r.rel_score||"", isStocking: r.is_stocking||false,
+          inventory: Array.isArray(r.inventory)?r.inventory:[]
+        }));
+        setCustomers(mapped);
+      } else {
+        await seedDatabase();
+      }
+    } catch(e) {
+      console.error("Load exception:",e);
     }
     setDbReady(true);
   };
@@ -843,8 +846,11 @@ export default function App(){
 
   // ── AUTH STATES ───────────────────────────────────────────────────────────
   if(!authChecked) return(
-    <div style={{minHeight:"100vh",background:"#1e293b",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{color:"#fff",fontSize:16,fontWeight:600}}>Loading...</div>
+    <div style={{minHeight:"100vh",background:"#1e293b",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
+      <div style={{background:"#cc0000",borderRadius:6,padding:"6px 14px"}}>
+        <span style={{color:"#fff",fontWeight:900,fontSize:20,fontFamily:"Arial Black,sans-serif",letterSpacing:"2px"}}>NAPA</span>
+      </div>
+      <div style={{color:"#94a3b8",fontSize:14}}>Loading...</div>
     </div>
   );
   if(supabase && !user) return <LoginScreen onLogin={setUser}/>;
@@ -881,7 +887,7 @@ export default function App(){
         {/* Desktop header — single row */}
         <div style={{display:"flex",maxWidth:1440,margin:"0 auto",padding:"0 24px",height:64,alignItems:"center",justifyContent:"space-between",gap:16}}>
           <div style={{display:"flex",gap:24,alignItems:"center"}}>
-            {[["🏢",stats.total,"Accounts"],["✅",stats.active,"Customers"],["📅",stats.overdue>0?`${stats.overdue} overdue`:stats.followups,"Follow-ups"],["🔴",stats.reorders,"Reorders"]].map(([icon,val,label])=>(
+            {[["🏢",stats.total||0,"Accounts"],["✅",stats.active||0,"Customers"],["📅",stats.overdue>0?`${stats.overdue} overdue`:(stats.followups||0),"Follow-ups"],["🔴",stats.reorders||0,"Reorders"]].map(([icon,val,label])=>(
               <div key={label} style={{textAlign:"center"}}>
                 <div style={{color:label==="Reorders"&&stats.reorders>0?"#ef4444":label==="Follow-ups"&&stats.overdue>0?"#fbbf24":"#fff",fontWeight:800,fontSize:17,lineHeight:1}}>{icon} {val}</div>
                 <div style={{color:"#94a3b8",fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginTop:3}}>{label}</div>
