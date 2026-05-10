@@ -768,15 +768,35 @@ export default function App(){
       if(error){ console.error("Load error:",error); setDbReady(true); return; }
       if(data && data.length > 0){
         const mapped = data.map(r=>({
-          id: r.id||Date.now(), name: r.name||"", type: r.type||"", town: r.town||"",
-          address: r.address||"", fullAddress: r.full_address||"", phone: r.phone||"",
-          contact: r.contact||"", email: r.email||"", rating: r.rating||"", reviews: r.reviews||0,
-          priority: r.priority||"High", status: r.status||"", acctNum: r.acct_num||"",
-          monthlySpend: r.monthly_spend||"", supplier: r.supplier||"",
-          lastVisit: r.last_visit||"", lastCall: r.last_call||"",
-          nextFollowUp: r.next_follow_up||"", notes: r.notes||"",
-          relScore: r.rel_score||"", isStocking: r.is_stocking||false,
-          inventory: Array.isArray(r.inventory)?r.inventory:[]
+          id: Number(r.id)||Date.now(),
+          name: String(r.name||""),
+          type: String(r.type||""),
+          town: String(r.town||""),
+          address: String(r.address||""),
+          fullAddress: String(r.full_address||""),
+          phone: String(r.phone||""),
+          contact: String(r.contact||""),
+          email: String(r.email||""),
+          rating: String(r.rating||""),
+          reviews: Number(r.reviews||0),
+          priority: String(r.priority||"High"),
+          status: String(r.status||""),
+          acctNum: String(r.acct_num||""),
+          monthlySpend: String(r.monthly_spend||""),
+          supplier: String(r.supplier||""),
+          lastVisit: String(r.last_visit||""),
+          lastCall: String(r.last_call||""),
+          nextFollowUp: String(r.next_follow_up||""),
+          notes: String(r.notes||""),
+          relScore: String(r.rel_score||""),
+          isStocking: Boolean(r.is_stocking||false),
+          inventory: Array.isArray(r.inventory)?r.inventory.map(i=>({
+            id: String(i.id||""),
+            partNum: String(i.partNum||i.part_num||""),
+            description: String(i.description||""),
+            parLevel: Number(i.parLevel||i.par_level||0),
+            currentStock: Number(i.currentStock||i.current_stock||0)
+          })):[]
         }));
         setCustomers(mapped);
       } else {
