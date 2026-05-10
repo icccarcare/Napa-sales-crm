@@ -802,6 +802,7 @@ export default function App(){
     try {
       const {data,error} = await sb.from("customers").select("*").order("name");
       if(error){ console.error("Load error:",error); setDbReady(true); return; }
+      console.log("Raw DB row sample:", JSON.stringify(data?.[0]));
       if(data && data.length > 0){
         const mapped = data.map(r=>({
           id: Number(r.id)||Date.now(),
@@ -834,12 +835,15 @@ export default function App(){
             currentStock: Number(i.currentStock||i.current_stock||0)
           })):[]
         }));
+        console.log("Mapped sample:", JSON.stringify(mapped?.[0]));
         setCustomers(mapped);
       } else {
         await seedDatabase();
       }
     } catch(e) {
       console.error("Load exception:",e);
+      // Fall back to initial data so app doesn't crash
+      setCustomers(INITIAL_CUSTOMERS);
     }
     setDbReady(true);
   };
