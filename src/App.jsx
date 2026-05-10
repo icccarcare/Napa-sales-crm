@@ -948,13 +948,12 @@ export default function App(){
     } catch(e) { return {total:0,active:0,followups:0,stocking:0,reorders:0,overdue:0}; }
   },[customers]);
 
-  // DEBUG: Minimal render to isolate crash
+  // DEBUG: Ultra-minimal render
   return(
     <div style={{padding:40,fontFamily:"sans-serif"}}>
-      <h2 style={{color:"green"}}>✅ Auth works! User: {user?.email}</h2>
-      <p>Customers loaded: {customers.length}</p>
-      <p>Stats: {JSON.stringify(stats)}</p>
-      <button onClick={()=>getSupabaseAsync().then(sb=>sb&&sb.auth.signOut())}>Sign Out</button>
+      <h2 style={{color:"green"}}>✅ Auth works!</h2>
+      <p>User email: {String(user?.email||"unknown")}</p>
+      <p>Customer count: {String(customers.length)}</p>
     </div>
   );
   // ORIGINAL BELOW (disabled for debug)
