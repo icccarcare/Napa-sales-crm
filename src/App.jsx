@@ -142,19 +142,9 @@ function Fld({label,children}){return<div><label style={lbl}>{label}</label>{chi
 // ─── NAPA LOGO ────────────────────────────────────────────────────────────────
 function NapaLogo(){
   return(
-    <div style={{display:"flex",alignItems:"center"}}>
-      <svg width="52" height="52" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
-        {/* Blue circle background */}
-        <circle cx="26" cy="26" r="26" fill="#003087"/>
-        {/* Yellow hexagon */}
-        <polygon points="26,8 38,14.5 38,27.5 26,34 14,27.5 14,14.5" fill="#f5c400"/>
-        {/* White band across hexagon */}
-        <rect x="14" y="18" width="24" height="8" fill="white"/>
-        {/* NAPA text in blue */}
-        <text x="26" y="25.5" textAnchor="middle" fontFamily="Arial Black,sans-serif" fontWeight="900" fontSize="7.5" fill="#003087" letterSpacing="0.5">NAPA</text>
-        {/* AUTO PARTS text in yellow below hexagon */}
-        <text x="26" y="42" textAnchor="middle" fontFamily="Arial Black,sans-serif" fontWeight="900" fontSize="5.5" fill="#f5c400" letterSpacing="0.3">AUTO PARTS</text>
-      </svg>
+    <div style={{display:"flex",alignItems:"center",gap:10}}>
+      <div style={{background:"#cc0000",borderRadius:6,padding:"5px 10px",fontFamily:"Arial Black,sans-serif",fontWeight:900,fontSize:16,color:"#fff",letterSpacing:"1px",lineHeight:1}}>NAPA</div>
+      <div style={{color:"#fff",fontWeight:800,fontSize:15,letterSpacing:"0.5px"}}>Auto Parts</div>
     </div>
   );
 }
