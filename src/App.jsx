@@ -775,27 +775,31 @@ export default function App(){
   // ── AUTH ──────────────────────────────────────────────────────────────────
   useEffect(()=>{
     if(!SUPABASE_URL||!SUPABASE_ANON_KEY){ setAuthChecked(true); return; }
-    let subscription = null;
+    let mounted = true;
     getSupabaseAsync().then(sb => {
-      if(!sb){ console.error("Supabase failed to init"); setAuthChecked(true); return; }
-      console.log("Supabase initialized successfully");
+      if(!sb||!mounted){ setAuthChecked(true); return; }
+      // Use only getSession - no onAuthStateChange listener
       sb.auth.getSession().then(({data:{session}})=>{
-        setUser(session?.user?.email||null);
+        if(!mounted) return;
+        const email = session?.user?.email||null;
+        console.log("Session check complete, user:", email);
+        setUser(email);
         setAuthChecked(true);
+      }).catch(e=>{
+        console.error("getSession error:", e);
+        if(mounted) setAuthChecked(true);
       });
-      const result = sb.auth.onAuthStateChange((_,session)=>{
-        setUser(session?.user?.email||null);
-      });
-      subscription = result.data?.subscription;
+    }).catch(e=>{
+      console.error("Supabase init error:", e);
+      if(mounted) setAuthChecked(true);
     });
-    return ()=>{ if(subscription) subscription.unsubscribe(); };
+    return ()=>{ mounted = false; };
   },[]);
 
   // ── LOAD DATA FROM DB ─────────────────────────────────────────────────────
   useEffect(()=>{
     if(!SUPABASE_URL||!user) return;
-    setDbReady(true); // DEBUG: skip DB load
-    // loadCustomers();
+    loadCustomers();
   },[user]);
 
   const loadCustomers = async () => {
@@ -949,15 +953,6 @@ export default function App(){
     } catch(e) { return {total:0,active:0,followups:0,stocking:0,reorders:0,overdue:0}; }
   },[customers]);
 
-  // DEBUG: Ultra-minimal render
-  return(
-    <div style={{padding:40,fontFamily:"sans-serif"}}>
-      <h2 style={{color:"green"}}>✅ Auth works!</h2>
-      <p>User email: {String(user||"unknown")}</p>
-      <p>Customer count: {String(customers.length)}</p>
-    </div>
-  );
-  // ORIGINAL BELOW (disabled for debug)
   return(
     <div style={{fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",background:"#f1f5f9",minHeight:"100vh"}}>
 
@@ -998,7 +993,7 @@ export default function App(){
             <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?"#dc2626":"#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>📦<br/>Inv{stats.reorders>0?` ${stats.reorders}`:""}</button>
             <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>➕<br/>Add</button>
           </div>
-          {SUPABASE_URL&&!!user&&<div style={{textAlign:"right",marginTop:6}}><button onClick={()=>getSupabaseAsync().then(sb=>sb&&sb.auth.signOut())} style={{background:"none",border:"none",color:"#64748b",fontSize:11,cursor:"pointer"}}>🚪 Sign out</button></div>}
+          {SUPABASE_URL&&!!user&&<div style={{textAlign:"right",marginTop:6}}><button onClick={()=>getSupabaseAsync().then(sb=>sb&&sb.auth.signOut()).then(()=>{setUser(null);setAuthChecked(true);})} style={{background:"none",border:"none",color:"#64748b",fontSize:11,cursor:"pointer"}}>🚪 Sign out</button></div>}
         </div>
       </div>
 
