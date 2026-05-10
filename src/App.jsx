@@ -429,6 +429,37 @@ function Dashboard({customers,onClose,onSelectCustomer}){
 }
 
 // ─── WEEKLY CALL LIST ─────────────────────────────────────────────────────────
+// ─── SECTION (used in WeeklyCallList) ────────────────────────────────────────
+function CallSection({title,items,emptyMsg,bg,onClose,onSelectCustomer}){
+  return(
+    <div style={{marginBottom:20,border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
+      <div style={{background:bg||"#fff",padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        {title}<span style={{background:"#1e293b",color:"#fff",borderRadius:20,fontSize:11,fontWeight:700,padding:"2px 8px"}}>{items.length}</span>
+      </div>
+      {items.length===0&&<div style={{padding:"16px",color:"#94a3b8",fontSize:13,textAlign:"center"}}>{emptyMsg}</div>}
+      {items.map(c=>{
+        const days=daysUntil(c.nextFollowUp);
+        const isOverdue=days!==null&&days<0;
+        return<div key={c.id} onClick={()=>{onClose();onSelectCustomer(c);}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid #f1f5f9",cursor:"pointer",background:"#fff"}} onMouseEnter={e=>e.currentTarget.style.background="#f0f9ff"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{fontSize:20}}>{typeIcons[c.type]||"🏪"}</div>
+            <div>
+              <div style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>{String(c.name||"")}</div>
+              <div style={{fontSize:12,color:"#64748b"}}>{String(c.town||"")} · {String(c.type||"")}{c.contact?` · 👤 ${c.contact}`:""}</div>
+              {c.phone&&<a href={`tel:${c.phone}`} onClick={e=>e.stopPropagation()} style={{fontSize:12,color:"#2563eb",textDecoration:"none",fontWeight:500}}>📞 {c.phone}</a>}
+            </div>
+          </div>
+          <div style={{textAlign:"right",minWidth:100}}>
+            <PriBadge p={c.priority||"Medium"}/>
+            {c.nextFollowUp&&<div style={{fontSize:12,fontWeight:700,color:isOverdue?"#dc2626":"#d97706",marginTop:4}}>{isOverdue?`⚠️ ${Math.abs(days)}d overdue`:formatDate(c.nextFollowUp)}</div>}
+            <SpendBadge spend={c.monthlySpend||""}/>
+          </div>
+        </div>;
+      })}
+    </div>
+  );
+}
+
 function WeeklyCallList({customers,onClose,onSelectCustomer}){
   const todayStr=today();
   const weekEnd=new Date(); weekEnd.setDate(weekEnd.getDate()+7);
@@ -438,33 +469,7 @@ function WeeklyCallList({customers,onClose,onSelectCustomer}){
   const thisWeek=customers.filter(c=>c.nextFollowUp&&c.nextFollowUp>=todayStr&&c.nextFollowUp<=weekEndStr).sort((a,b)=>a.nextFollowUp<b.nextFollowUp?-1:1);
   const highNoFollowup=customers.filter(c=>!c.nextFollowUp&&c.priority==="High"&&(c.status==="Customer"||c.status==="Active")).slice(0,10);
 
-  const Section=({title,items,emptyMsg,bg="#fff"})=>(
-    <div style={{marginBottom:20,border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-      <div style={{background:bg,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        {title}<span style={{background:"#1e293b",color:"#fff",borderRadius:20,fontSize:11,fontWeight:700,padding:"2px 8px"}}>{items.length}</span>
-      </div>
-      {items.length===0&&<div style={{padding:"16px",color:"#94a3b8",fontSize:13,textAlign:"center"}}>{emptyMsg}</div>}
-      {items.map(c=>{
-        const days=daysUntil(c.nextFollowUp);
-        const overdue=days!==null&&days<0;
-        return<div key={c.id} onClick={()=>{onClose();onSelectCustomer(c);}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid #f1f5f9",cursor:"pointer",background:"#fff"}} onMouseEnter={e=>e.currentTarget.style.background="#f0f9ff"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <div style={{fontSize:20}}>{typeIcons[c.type]||"🏪"}</div>
-            <div>
-              <div style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>{c.name}</div>
-              <div style={{fontSize:12,color:"#64748b"}}>{c.town} · {c.type}{c.contact?` · 👤 ${c.contact}`:""}</div>
-              {c.phone&&<a href={`tel:${c.phone}`} onClick={e=>e.stopPropagation()} style={{fontSize:12,color:"#2563eb",textDecoration:"none",fontWeight:500}}>📞 {c.phone}</a>}
-            </div>
-          </div>
-          <div style={{textAlign:"right",minWidth:100}}>
-            <PriBadge p={c.priority}/>
-            {c.nextFollowUp&&<div style={{fontSize:12,fontWeight:700,color:overdue?"#dc2626":"#d97706",marginTop:4}}>{overdue?`⚠️ ${Math.abs(days)}d overdue`:formatDate(c.nextFollowUp)}</div>}
-            <SpendBadge spend={c.monthlySpend}/>
-          </div>
-        </div>;
-      })}
-    </div>
-  );
+
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -480,9 +485,9 @@ function WeeklyCallList({customers,onClose,onSelectCustomer}){
           <div style={{background:"#fff7ed",border:"1.5px solid #fed7aa",borderRadius:10,padding:"10px 16px",marginBottom:16,fontSize:13,color:"#92400e",fontWeight:600}}>
             💡 Tap any account to open their full profile and log your call notes
           </div>
-          <Section title="🔴 Overdue Follow-Ups" items={overdue} emptyMsg="No overdue follow-ups — great work!" bg="#fff5f5"/>
-          <Section title="📅 This Week" items={thisWeek} emptyMsg="No follow-ups scheduled for this week" bg="#fffbeb"/>
-          <Section title="⭐ High Priority — No Follow-Up Set" items={highNoFollowup} emptyMsg="All high priority accounts have follow-ups set" bg="#f0f9ff"/>
+          <CallSection title="🔴 Overdue Follow-Ups" items={overdue} emptyMsg="No overdue follow-ups — great work!" bg="#fff5f5" onClose={onClose} onSelectCustomer={onSelectCustomer}/>
+          <CallSection title="📅 This Week" items={thisWeek} emptyMsg="No follow-ups scheduled for this week" bg="#fffbeb" onClose={onClose} onSelectCustomer={onSelectCustomer}/>
+          <CallSection title="⭐ High Priority — No Follow-Up Set" items={highNoFollowup} emptyMsg="All high priority accounts have follow-ups set" bg="#f0f9ff" onClose={onClose} onSelectCustomer={onSelectCustomer}/>
         </div>
       </div>
     </div>
