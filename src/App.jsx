@@ -1,15 +1,30 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 
-// ─── SUPABASE CLIENT ─────────────────────────────────────────────────────────
+// ─── SUPABASE CLIENT (dynamic import to avoid bundle conflicts) ───────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 let _supabaseInstance = null;
-function getSupabase() {
-  if (!_supabaseInstance && SUPABASE_URL && SUPABASE_ANON_KEY) {
-    try { _supabaseInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } 
-    catch(e) { console.error("Supabase init failed:", e); }
+let _supabaseLoading = false;
+const _supabaseCallbacks = [];
+
+async function getSupabaseAsync() {
+  if (_supabaseInstance) return _supabaseInstance;
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+  if (_supabaseLoading) {
+    return new Promise(resolve => _supabaseCallbacks.push(resolve));
   }
+  _supabaseLoading = true;
+  try {
+    const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+    _supabaseInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    _supabaseCallbacks.forEach(cb => cb(_supabaseInstance));
+    _supabaseCallbacks.length = 0;
+  } catch(e) {
+    console.error("Supabase load failed:", e);
+    _supabaseCallbacks.forEach(cb => cb(null));
+    _supabaseCallbacks.length = 0;
+  }
+  _supabaseLoading = false;
   return _supabaseInstance;
 }
 
@@ -687,14 +702,17 @@ function LoginScreen({onLogin}){
     setLoading(true); setError(""); setMsg("");
     try {
       if(mode==="login"){
-        const {error:e} = await getSupabase().auth.signInWithPassword({email,password});
+        const sb=await getSupabaseAsync(); if(!sb){setError('Service unavailable');setLoading(false);return;}
+        const {error:e} = await sb.auth.signInWithPassword({email,password});
         if(e) setError(e.message);
       } else if(mode==="signup"){
-        const {error:e} = await getSupabase().auth.signUp({email,password});
+        const sb2=await getSupabaseAsync();
+        const {error:e} = await sb2.auth.signUp({email,password});
         if(e) setError(e.message);
         else setMsg("Check your email to confirm your account, then log in.");
       } else {
-        const {error:e} = await getSupabase().auth.resetPasswordForEmail(email);
+        const sb3=await getSupabaseAsync();
+        const {error:e} = await sb3.auth.resetPasswordForEmail(email);
         if(e) setError(e.message);
         else setMsg("Password reset email sent — check your inbox.");
       }
@@ -736,7 +754,7 @@ function LoginScreen({onLogin}){
 
 export default function App(){
   const [user,setUser]             = useState(null);
-  const [authChecked,setAuthChecked] = useState(!getSupabase()); // skip if no supabase
+  const [authChecked,setAuthChecked] = useState(!SUPABASE_URL || !SUPABASE_ANON_KEY); // skip if no supabase
   const [customers,setCustomers]   = useState(INITIAL_CUSTOMERS);
   const [dbReady,setDbReady]       = useState(false);
   const [search,setSearch]         = useState("");
@@ -756,27 +774,33 @@ export default function App(){
 
   // ── AUTH ──────────────────────────────────────────────────────────────────
   useEffect(()=>{
-    if(!getSupabase()) return;
-    getSupabase().auth.getSession().then(({data:{session}})=>{
-      setUser(session?.user||null);
-      setAuthChecked(true);
+    if(!SUPABASE_URL||!SUPABASE_ANON_KEY){ setAuthChecked(true); return; }
+    let subscription = null;
+    getSupabaseAsync().then(sb => {
+      if(!sb){ setAuthChecked(true); return; }
+      sb.auth.getSession().then(({data:{session}})=>{
+        setUser(session?.user||null);
+        setAuthChecked(true);
+      });
+      const result = sb.auth.onAuthStateChange((_,session)=>{
+        setUser(session?.user||null);
+      });
+      subscription = result.data?.subscription;
     });
-    const {data:{subscription}} = getSupabase().auth.onAuthStateChange((_,session)=>{
-      setUser(session?.user||null);
-    });
-    return ()=>subscription.unsubscribe();
+    return ()=>{ if(subscription) subscription.unsubscribe(); };
   },[]);
 
   // ── LOAD DATA FROM DB ─────────────────────────────────────────────────────
   useEffect(()=>{
-    if(!getSupabase()||!user) return;
+    if(!SUPABASE_URL||!user) return;
     loadCustomers();
   },[user]);
 
   const loadCustomers = async () => {
-    if(!getSupabase()) return;
+    const sb = await getSupabaseAsync();
+    if(!sb) return;
     try {
-      const {data,error} = await getSupabase().from("customers").select("*").order("name");
+      const {data,error} = await sb.from("customers").select("*").order("name");
       if(error){ console.error("Load error:",error); setDbReady(true); return; }
       if(data && data.length > 0){
         const mapped = data.map(r=>({
@@ -821,7 +845,8 @@ export default function App(){
   };
 
   const seedDatabase = async () => {
-    if(!getSupabase()) return;
+    const sb = await getSupabaseAsync();
+    if(!sb) return;
     const rows = INITIAL_CUSTOMERS.map(c=>({
       id: c.id, name: c.name, type: c.type, town: c.town,
       address: c.address, full_address: c.fullAddress, phone: c.phone,
@@ -833,7 +858,7 @@ export default function App(){
       notes: c.notes||"", rel_score: c.relScore||"",
       is_stocking: c.isStocking||false, inventory: c.inventory||[]
     }));
-    const {error} = await getSupabase().from("customers").upsert(rows);
+    const {error} = await sb.from("customers").upsert(rows);
     if(error) console.error("Seed error:",error);
     else setCustomers(INITIAL_CUSTOMERS);
   };
@@ -841,8 +866,8 @@ export default function App(){
   // ── CRUD WITH DB SYNC ─────────────────────────────────────────────────────
   const updC = useCallback(async (u) => {
     setCustomers(cs=>cs.map(c=>c.id===u.id?u:c));
-    if(!getSupabase()) return;
-    await getSupabase().from("customers").update({
+    const sb=await getSupabaseAsync(); if(!sb) return;
+    await sb.from("customers").update({
       name:u.name, type:u.type, town:u.town, address:u.address,
       full_address:u.fullAddress, phone:u.phone, contact:u.contact||"",
       email:u.email||"", priority:u.priority, status:u.status||"",
@@ -856,14 +881,14 @@ export default function App(){
 
   const delC = useCallback(async (id) => {
     setCustomers(cs=>cs.filter(c=>c.id!==id));
-    if(!getSupabase()) return;
-    await getSupabase().from("customers").delete().eq("id",id);
+    const sb=await getSupabaseAsync(); if(!sb) return;
+    await sb.from("customers").delete().eq("id",id);
   },[]);
 
   const addC = useCallback(async (c) => {
     setCustomers(cs=>[...cs,c]);
-    if(!getSupabase()) return;
-    await getSupabase().from("customers").insert({
+    const sb=await getSupabaseAsync(); if(!sb) return;
+    await sb.from("customers").insert({
       id: c.id, name:c.name, type:c.type, town:c.town,
       address:c.address, full_address:c.fullAddress||`${c.address}, ${c.town}, TX`,
       phone:c.phone||"", contact:c.contact||"", email:c.email||"",
@@ -885,7 +910,7 @@ export default function App(){
       <div style={{color:"#94a3b8",fontSize:14}}>Loading...</div>
     </div>
   );
-  if(getSupabase() && !user) return <LoginScreen onLogin={setUser}/>;
+  if(SUPABASE_URL && !user) return <LoginScreen onLogin={setUser}/>;
   // Safety check - ensure customers is always a valid array
   if(!Array.isArray(customers)) return <div>Initializing...</div>;
 
