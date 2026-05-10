@@ -1,32 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-
-// ─── SUPABASE CLIENT (dynamic import to avoid bundle conflicts) ───────────────
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-let _supabaseInstance = null;
-let _supabaseLoading = false;
-const _supabaseCallbacks = [];
-
-async function getSupabaseAsync() {
-  if (_supabaseInstance) return _supabaseInstance;
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
-  if (_supabaseLoading) {
-    return new Promise(resolve => _supabaseCallbacks.push(resolve));
-  }
-  _supabaseLoading = true;
-  try {
-    const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
-    _supabaseInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    _supabaseCallbacks.forEach(cb => cb(_supabaseInstance));
-    _supabaseCallbacks.length = 0;
-  } catch(e) {
-    console.error("Supabase load failed:", e);
-    _supabaseCallbacks.forEach(cb => cb(null));
-    _supabaseCallbacks.length = 0;
-  }
-  _supabaseLoading = false;
-  return _supabaseInstance;
-}
+import { useState, useMemo, useCallback, useEffect } from "react";
 
 
 // ─── SPEND TIERS ─────────────────────────────────────────────────────────────
@@ -183,6 +155,11 @@ function InvPanel({customer,onUpdate}){
   const updateStock=(id,val)=>save(items.map(i=>i.id===id?{...i,currentStock:parseInt(val)||0}:i));
   const remove=id=>save(items.filter(i=>i.id!==id));
   const reorders=items.filter(i=>i.currentStock<i.parLevel);
+  const updC=useCallback(u=>setCustomers(cs=>cs.map(c=>c.id===u.id?u:c)),[]);
+  const delC=useCallback(id=>setCustomers(cs=>cs.filter(c=>c.id!==id)),[]);
+  const addC=useCallback(c=>setCustomers(cs=>[...cs,c]),[]);
+
+
   return(
     <div style={{marginTop:14,padding:14,background:"#f8fafc",borderRadius:10,border:"1.5px solid #e2e8f0"}}>
       <div style={{fontWeight:800,fontSize:13,color:"#1e293b",marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -688,76 +665,9 @@ function RoutePlanner({customers,onClose}){
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 
-// ─── LOGIN SCREEN ─────────────────────────────────────────────────────────────
-function LoginScreen({onLogin}){
-  const [email,setEmail]     = useState("");
-  const [password,setPassword] = useState("");
-  const [mode,setMode]       = useState("login"); // login | signup | reset
-  const [error,setError]     = useState("");
-  const [loading,setLoading] = useState(false);
-  const [msg,setMsg]         = useState("");
-
-  const handle = async () => {
-    if(!email||(!password&&mode!=="reset")){setError("Please fill in all fields.");return;}
-    setLoading(true); setError(""); setMsg("");
-    try {
-      if(mode==="login"){
-        const sb=await getSupabaseAsync(); if(!sb){setError('Service unavailable');setLoading(false);return;}
-        const {data,error:e} = await sb.auth.signInWithPassword({email,password});
-        if(e) setError(e.message);
-        else if(data?.user?.email) onLogin(data.user.email);
-      } else if(mode==="signup"){
-        const sb2=await getSupabaseAsync();
-        const {error:e} = await sb2.auth.signUp({email,password});
-        if(e) setError(e.message);
-        else setMsg("Check your email to confirm your account, then log in.");
-      } else {
-        const sb3=await getSupabaseAsync();
-        const {error:e} = await sb3.auth.resetPasswordForEmail(email);
-        if(e) setError(e.message);
-        else setMsg("Password reset email sent — check your inbox.");
-      }
-    } catch(e){ setError(e.message); }
-    setLoading(false);
-  };
-
-  return(
-    <div style={{minHeight:"100vh",background:"#1e293b",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:"#fff",borderRadius:16,padding:40,width:"100%",maxWidth:400,boxShadow:"0 24px 60px rgba(0,0,0,0.4)"}}>
-        <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{background:"#cc0000",display:"inline-block",borderRadius:8,padding:"8px 18px",marginBottom:12}}>
-            <span style={{color:"#fff",fontWeight:900,fontSize:22,fontFamily:"Arial Black,sans-serif",letterSpacing:"2px"}}>NAPA</span>
-          </div>
-          <div style={{fontWeight:800,fontSize:18,color:"#1e293b"}}>Sales Territory CRM</div>
-          <div style={{fontSize:13,color:"#64748b",marginTop:4}}>{mode==="login"?"Sign in to your account":mode==="signup"?"Create your account":"Reset your password"}</div>
-        </div>
-        {error&&<div style={{background:"#fee2e2",color:"#991b1b",padding:"10px 14px",borderRadius:8,fontSize:13,marginBottom:14,fontWeight:600}}>{error}</div>}
-        {msg  &&<div style={{background:"#dcfce7",color:"#166534",padding:"10px 14px",borderRadius:8,fontSize:13,marginBottom:14,fontWeight:600}}>{msg}</div>}
-        <div style={{marginBottom:14}}>
-          <label style={{display:"block",fontSize:12,fontWeight:700,color:"#374151",marginBottom:4}}>Email</label>
-          <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()} placeholder="you@example.com" style={{width:"100%",border:"1.5px solid #d1d5db",borderRadius:8,padding:"10px 12px",fontSize:14,boxSizing:"border-box"}}/>
-        </div>
-        {mode!=="reset"&&<div style={{marginBottom:20}}>
-          <label style={{display:"block",fontSize:12,fontWeight:700,color:"#374151",marginBottom:4}}>Password</label>
-          <input type="password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()} placeholder="••••••••" style={{width:"100%",border:"1.5px solid #d1d5db",borderRadius:8,padding:"10px 12px",fontSize:14,boxSizing:"border-box"}}/>
-        </div>}
-        <button onClick={handle} disabled={loading} style={{width:"100%",background:"#cc0000",color:"#fff",border:"none",borderRadius:8,padding:"12px",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:16,opacity:loading?0.7:1}}>
-          {loading?"Please wait...":{login:"Sign In",signup:"Create Account",reset:"Send Reset Email"}[mode]}
-        </button>
-        <div style={{textAlign:"center",fontSize:13,color:"#64748b"}}>
-          {mode==="login"&&<><span onClick={()=>{setMode("signup");setError("");setMsg("");}} style={{color:"#2563eb",cursor:"pointer",fontWeight:600}}>Create account</span> · <span onClick={()=>{setMode("reset");setError("");setMsg("");}} style={{color:"#2563eb",cursor:"pointer",fontWeight:600}}>Forgot password?</span></>}
-          {mode!=="login"&&<span onClick={()=>{setMode("login");setError("");setMsg("");}} style={{color:"#2563eb",cursor:"pointer",fontWeight:600}}>← Back to sign in</span>}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function App(){
-  const [user,setUser]             = useState(null);
-  const [authChecked,setAuthChecked] = useState(true); // start true, auth check happens async skip if no supabase
   const [customers,setCustomers]   = useState(INITIAL_CUSTOMERS);
-  const [dbReady,setDbReady]       = useState(false);
   const [search,setSearch]         = useState("");
   const [townF,setTownF]           = useState("All Towns");
   const [priF,setPriF]             = useState("All");
@@ -773,157 +683,6 @@ export default function App(){
   const [showCalls,setShowCalls]   = useState(false);
   const [activeTab,setActiveTab]   = useState("all");
 
-  // ── AUTH ──────────────────────────────────────────────────────────────────
-  useEffect(()=>{
-    if(!SUPABASE_URL||!SUPABASE_ANON_KEY){ setAuthChecked(true); return; }
-    let mounted = true;
-    getSupabaseAsync().then(sb => {
-      if(!sb||!mounted){ setAuthChecked(true); return; }
-      // Use only getSession - no onAuthStateChange listener
-      sb.auth.getSession().then(({data:{session}})=>{
-        if(!mounted) return;
-        const email = session?.user?.email||null;
-        console.log("Session check complete, user:", email);
-        setUser(email);
-        setAuthChecked(true);
-      }).catch(e=>{
-        console.error("getSession error:", e);
-        if(mounted) setAuthChecked(true);
-      });
-    }).catch(e=>{
-      console.error("Supabase init error:", e);
-      if(mounted) setAuthChecked(true);
-    });
-    return ()=>{ mounted = false; };
-  },[]);
-
-  // ── LOAD DATA FROM DB ─────────────────────────────────────────────────────
-  useEffect(()=>{
-    if(!SUPABASE_URL||!user) return;
-    loadCustomers();
-  },[user]);
-
-  const loadCustomers = async () => {
-    const sb = await getSupabaseAsync();
-    if(!sb) return;
-    try {
-      const {data,error} = await sb.from("customers").select("*").order("name");
-      if(error){ console.error("Load error:",error); setDbReady(true); return; }
-      console.log("Raw DB row sample:", JSON.stringify(data?.[0]));
-      if(data && data.length > 0){
-        const mapped = data.map(r=>({
-          id: Number(r.id)||Date.now(),
-          name: String(r.name||""),
-          type: String(r.type||""),
-          town: String(r.town||""),
-          address: String(r.address||""),
-          fullAddress: String(r.full_address||""),
-          phone: String(r.phone||""),
-          contact: String(r.contact||""),
-          email: String(r.email||""),
-          rating: String(r.rating||""),
-          reviews: Number(r.reviews||0),
-          priority: String(r.priority||"High"),
-          status: String(r.status||""),
-          acctNum: String(r.acct_num||""),
-          monthlySpend: String(r.monthly_spend||""),
-          supplier: String(r.supplier||""),
-          lastVisit: String(r.last_visit||""),
-          lastCall: String(r.last_call||""),
-          nextFollowUp: String(r.next_follow_up||""),
-          notes: String(r.notes||""),
-          relScore: String(r.rel_score||""),
-          isStocking: Boolean(r.is_stocking||false),
-          inventory: Array.isArray(r.inventory)?r.inventory.map(i=>({
-            id: String(i.id||""),
-            partNum: String(i.partNum||i.part_num||""),
-            description: String(i.description||""),
-            parLevel: Number(i.parLevel||i.par_level||0),
-            currentStock: Number(i.currentStock||i.current_stock||0)
-          })):[]
-        }));
-        console.log("Mapped sample:", JSON.stringify(mapped?.[0]));
-        setCustomers(mapped);
-      } else {
-        await seedDatabase();
-      }
-    } catch(e) {
-      console.error("Load exception:",e);
-      // Fall back to initial data so app doesn't crash
-      setCustomers(INITIAL_CUSTOMERS);
-    }
-    setDbReady(true);
-  };
-
-  const seedDatabase = async () => {
-    const sb = await getSupabaseAsync();
-    if(!sb) return;
-    const rows = INITIAL_CUSTOMERS.map(c=>({
-      id: c.id, name: c.name, type: c.type, town: c.town,
-      address: c.address, full_address: c.fullAddress, phone: c.phone,
-      contact: c.contact||"", email: c.email||"", rating: c.rating||"",
-      reviews: c.reviews||0, priority: c.priority, status: c.status,
-      acct_num: c.acctNum||"", monthly_spend: c.monthlySpend||"",
-      supplier: c.supplier||"", last_visit: c.lastVisit||"",
-      last_call: c.lastCall||"", next_follow_up: c.nextFollowUp||"",
-      notes: c.notes||"", rel_score: c.relScore||"",
-      is_stocking: c.isStocking||false, inventory: c.inventory||[]
-    }));
-    const {error} = await sb.from("customers").upsert(rows);
-    if(error) console.error("Seed error:",error);
-    else setCustomers(INITIAL_CUSTOMERS);
-  };
-
-  // ── CRUD WITH DB SYNC ─────────────────────────────────────────────────────
-  const updC = useCallback(async (u) => {
-    setCustomers(cs=>cs.map(c=>c.id===u.id?u:c));
-    const sb=await getSupabaseAsync(); if(!sb) return;
-    await sb.from("customers").update({
-      name:u.name, type:u.type, town:u.town, address:u.address,
-      full_address:u.fullAddress, phone:u.phone, contact:u.contact||"",
-      email:u.email||"", priority:u.priority, status:u.status||"",
-      acct_num:u.acctNum||"", monthly_spend:u.monthlySpend||"",
-      supplier:u.supplier||"", last_visit:u.lastVisit||"",
-      last_call:u.lastCall||"", next_follow_up:u.nextFollowUp||"",
-      notes:u.notes||"", rel_score:u.relScore||"",
-      is_stocking:u.isStocking||false, inventory:u.inventory||[]
-    }).eq("id",u.id);
-  },[]);
-
-  const delC = useCallback(async (id) => {
-    setCustomers(cs=>cs.filter(c=>c.id!==id));
-    const sb=await getSupabaseAsync(); if(!sb) return;
-    await sb.from("customers").delete().eq("id",id);
-  },[]);
-
-  const addC = useCallback(async (c) => {
-    setCustomers(cs=>[...cs,c]);
-    const sb=await getSupabaseAsync(); if(!sb) return;
-    await sb.from("customers").insert({
-      id: c.id, name:c.name, type:c.type, town:c.town,
-      address:c.address, full_address:c.fullAddress||`${c.address}, ${c.town}, TX`,
-      phone:c.phone||"", contact:c.contact||"", email:c.email||"",
-      rating:c.rating||"", reviews:c.reviews||0,
-      priority:c.priority, status:c.status||"",
-      acct_num:c.acctNum||"", monthly_spend:c.monthlySpend||"",
-      supplier:c.supplier||"", last_visit:"", last_call:"",
-      next_follow_up:"", notes:c.notes||"", rel_score:"",
-      is_stocking:false, inventory:[]
-    });
-  },[]);
-
-  // ── AUTH STATES ───────────────────────────────────────────────────────────
-  if(!authChecked) return(
-    <div style={{minHeight:"100vh",background:"#1e293b",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
-      <div style={{background:"#cc0000",borderRadius:6,padding:"6px 14px"}}>
-        <span style={{color:"#fff",fontWeight:900,fontSize:20,fontFamily:"Arial Black,sans-serif",letterSpacing:"2px"}}>NAPA</span>
-      </div>
-      <div style={{color:"#94a3b8",fontSize:14}}>Loading...</div>
-    </div>
-  );
-  if(SUPABASE_URL && !user) return <LoginScreen onLogin={setUser}/>;
-  // Safety check - ensure customers is always a valid array
-  if(!Array.isArray(customers)) return <div>Initializing...</div>;
 
   const filtered=useMemo(()=>{
     let list=activeTab==="stocking"?customers.filter(c=>c.isStocking):customers;
@@ -994,7 +753,7 @@ export default function App(){
             <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?"#dc2626":"#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>📦<br/>Inv{stats.reorders>0?` ${stats.reorders}`:""}</button>
             <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>➕<br/>Add</button>
           </div>
-          {SUPABASE_URL&&!!user&&<div style={{textAlign:"right",marginTop:6}}><button onClick={()=>getSupabaseAsync().then(sb=>sb&&sb.auth.signOut()).then(()=>{setUser(null);setAuthChecked(true);})} style={{background:"none",border:"none",color:"#64748b",fontSize:11,cursor:"pointer"}}>🚪 Sign out</button></div>}
+          
         </div>
       </div>
 
