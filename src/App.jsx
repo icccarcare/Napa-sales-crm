@@ -879,7 +879,7 @@ export default function App(){
       {/* ── HEADER ── */}
       <div style={{background:"#1e293b",position:"sticky",top:0,zIndex:50,borderBottom:"3px solid #cc0000"}}>
         {/* Desktop header — single row */}
-        <div style={{display:"none",maxWidth:1440,margin:"0 auto",padding:"0 24px",height:64,alignItems:"center",justifyContent:"space-between",gap:16}} className="desktop-header">
+        <div style={{display:"flex",maxWidth:1440,margin:"0 auto",padding:"0 24px",height:64,alignItems:"center",justifyContent:"space-between",gap:16}}>
           <div style={{display:"flex",gap:24,alignItems:"center"}}>
             {[["🏢",stats.total,"Accounts"],["✅",stats.active,"Customers"],["📅",stats.overdue>0?`${stats.overdue} overdue`:stats.followups,"Follow-ups"],["🔴",stats.reorders,"Reorders"]].map(([icon,val,label])=>(
               <div key={label} style={{textAlign:"center"}}>
@@ -896,8 +896,8 @@ export default function App(){
             <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:12,padding:"8px 14px"}}>➕ Add</button>
           </div>
         </div>
-        {/* Mobile header — two rows */}
-        <div style={{padding:"10px 14px 8px"}} className="mobile-header">
+        {/* Mobile header — two rows, hidden on desktop via JS */}
+        <div style={{display:"none"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
             {[["🏢",stats.total,"Accounts"],["✅",stats.active,"Customers"],["📅",stats.overdue>0?stats.overdue:stats.followups,"Follow-ups"],["🔴",stats.reorders,"Reorders"]].map(([icon,val,label])=>(
               <div key={label} style={{textAlign:"center"}}>
@@ -916,12 +916,7 @@ export default function App(){
           {supabase&&user&&<div style={{textAlign:"right",marginTop:6}}><button onClick={()=>supabase.auth.signOut()} style={{background:"none",border:"none",color:"#64748b",fontSize:11,cursor:"pointer"}}>🚪 Sign out</button></div>}
         </div>
       </div>
-      <style>{`
-        @media (min-width: 640px) {
-          .desktop-header { display: flex !important; }
-          .mobile-header { display: none !important; }
-        }
-      `}</style>
+
 
       {/* ── TABS ── */}
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 24px"}}>
