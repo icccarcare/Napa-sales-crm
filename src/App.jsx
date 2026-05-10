@@ -780,11 +780,11 @@ export default function App(){
       if(!sb){ console.error("Supabase failed to init"); setAuthChecked(true); return; }
       console.log("Supabase initialized successfully");
       sb.auth.getSession().then(({data:{session}})=>{
-        setUser(session?.user||null);
+        setUser(session?.user?.email||null);
         setAuthChecked(true);
       });
       const result = sb.auth.onAuthStateChange((_,session)=>{
-        setUser(session?.user||null);
+        setUser(session?.user?.email||null);
       });
       subscription = result.data?.subscription;
     });
@@ -794,7 +794,8 @@ export default function App(){
   // ── LOAD DATA FROM DB ─────────────────────────────────────────────────────
   useEffect(()=>{
     if(!SUPABASE_URL||!user) return;
-    loadCustomers();
+    setDbReady(true); // DEBUG: skip DB load
+    // loadCustomers();
   },[user]);
 
   const loadCustomers = async () => {
@@ -952,7 +953,7 @@ export default function App(){
   return(
     <div style={{padding:40,fontFamily:"sans-serif"}}>
       <h2 style={{color:"green"}}>✅ Auth works!</h2>
-      <p>User email: {String(user?.email||"unknown")}</p>
+      <p>User email: {String(user||"unknown")}</p>
       <p>Customer count: {String(customers.length)}</p>
     </div>
   );
