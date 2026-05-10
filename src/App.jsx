@@ -1,5 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
-
+import { useState, useMemo, useCallback } from "react";
 
 // ─── SPEND TIERS ─────────────────────────────────────────────────────────────
 const SPEND_TIERS = [
@@ -91,7 +90,7 @@ const INITIAL_CUSTOMERS = [
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const STATUSES   = ["","Customer","Active","Prospect","Warm Lead","Cold","Not Interested"];
 const PRIORITIES = ["High","Medium","Low"];
-const ALL_TOWNS  = ["All Towns",...Array.from(new Set(INITIAL_CUSTOMERS.map(c=>c.town||"").filter(Boolean))).sort()];
+const ALL_TOWNS  = ["All Towns",...Array.from(new Set(INITIAL_CUSTOMERS.map(c=>c.town))).sort()];
 
 const priorityConfig = {
   High:   {bg:"#fee2e2",text:"#991b1b",dot:"#ef4444"},
@@ -147,19 +146,13 @@ function NapaLogo(){
 
 // ─── INVENTORY PANEL ──────────────────────────────────────────────────────────
 function InvPanel({customer,onUpdate}){
-  const safeInventory = Array.isArray(customer.inventory) ? customer.inventory : [];
-  const [items,setItems]=useState(safeInventory);
+  const [items,setItems]=useState(customer.inventory||[]);
   const [np,setNp]=useState({partNum:"",description:"",parLevel:"",currentStock:""});
   const save=upd=>{setItems(upd);onUpdate({...customer,inventory:upd});};
   const add=()=>{if(!np.description)return;save([...items,{id:`inv-${Date.now()}`,partNum:np.partNum,description:np.description,parLevel:parseInt(np.parLevel)||0,currentStock:parseInt(np.currentStock)||0}]);setNp({partNum:"",description:"",parLevel:"",currentStock:""});};
   const updateStock=(id,val)=>save(items.map(i=>i.id===id?{...i,currentStock:parseInt(val)||0}:i));
   const remove=id=>save(items.filter(i=>i.id!==id));
   const reorders=items.filter(i=>i.currentStock<i.parLevel);
-  const updC=useCallback(u=>setCustomers(cs=>cs.map(c=>c.id===u.id?u:c)),[]);
-  const delC=useCallback(id=>setCustomers(cs=>cs.filter(c=>c.id!==id)),[]);
-  const addC=useCallback(c=>setCustomers(cs=>[...cs,c]),[]);
-
-
   return(
     <div style={{marginTop:14,padding:14,background:"#f8fafc",borderRadius:10,border:"1.5px solid #e2e8f0"}}>
       <div style={{fontWeight:800,fontSize:13,color:"#1e293b",marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -428,37 +421,6 @@ function Dashboard({customers,onClose,onSelectCustomer}){
 }
 
 // ─── WEEKLY CALL LIST ─────────────────────────────────────────────────────────
-// ─── SECTION (used in WeeklyCallList) ────────────────────────────────────────
-function CallSection({title,items,emptyMsg,bg,onClose,onSelectCustomer}){
-  return(
-    <div style={{marginBottom:20,border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-      <div style={{background:bg||"#fff",padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        {title}<span style={{background:"#1e293b",color:"#fff",borderRadius:20,fontSize:11,fontWeight:700,padding:"2px 8px"}}>{items.length}</span>
-      </div>
-      {items.length===0&&<div style={{padding:"16px",color:"#94a3b8",fontSize:13,textAlign:"center"}}>{emptyMsg}</div>}
-      {items.map(c=>{
-        const days=daysUntil(c.nextFollowUp);
-        const isOverdue=days!==null&&days<0;
-        return<div key={c.id} onClick={()=>{onClose();onSelectCustomer(c);}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid #f1f5f9",cursor:"pointer",background:"#fff"}} onMouseEnter={e=>e.currentTarget.style.background="#f0f9ff"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <div style={{fontSize:20}}>{typeIcons[c.type]||"🏪"}</div>
-            <div>
-              <div style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>{String(c.name||"")}</div>
-              <div style={{fontSize:12,color:"#64748b"}}>{String(c.town||"")} · {String(c.type||"")}{c.contact?` · 👤 ${c.contact}`:""}</div>
-              {c.phone&&<a href={`tel:${c.phone}`} onClick={e=>e.stopPropagation()} style={{fontSize:12,color:"#2563eb",textDecoration:"none",fontWeight:500}}>📞 {c.phone}</a>}
-            </div>
-          </div>
-          <div style={{textAlign:"right",minWidth:100}}>
-            <PriBadge p={c.priority||"Medium"}/>
-            {c.nextFollowUp&&<div style={{fontSize:12,fontWeight:700,color:isOverdue?"#dc2626":"#d97706",marginTop:4}}>{isOverdue?`⚠️ ${Math.abs(days)}d overdue`:formatDate(c.nextFollowUp)}</div>}
-            <SpendBadge spend={c.monthlySpend||""}/>
-          </div>
-        </div>;
-      })}
-    </div>
-  );
-}
-
 function WeeklyCallList({customers,onClose,onSelectCustomer}){
   const todayStr=today();
   const weekEnd=new Date(); weekEnd.setDate(weekEnd.getDate()+7);
@@ -468,7 +430,33 @@ function WeeklyCallList({customers,onClose,onSelectCustomer}){
   const thisWeek=customers.filter(c=>c.nextFollowUp&&c.nextFollowUp>=todayStr&&c.nextFollowUp<=weekEndStr).sort((a,b)=>a.nextFollowUp<b.nextFollowUp?-1:1);
   const highNoFollowup=customers.filter(c=>!c.nextFollowUp&&c.priority==="High"&&(c.status==="Customer"||c.status==="Active")).slice(0,10);
 
-
+  const Section=({title,items,emptyMsg,bg="#fff"})=>(
+    <div style={{marginBottom:20,border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
+      <div style={{background:bg,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        {title}<span style={{background:"#1e293b",color:"#fff",borderRadius:20,fontSize:11,fontWeight:700,padding:"2px 8px"}}>{items.length}</span>
+      </div>
+      {items.length===0&&<div style={{padding:"16px",color:"#94a3b8",fontSize:13,textAlign:"center"}}>{emptyMsg}</div>}
+      {items.map(c=>{
+        const days=daysUntil(c.nextFollowUp);
+        const overdue=days!==null&&days<0;
+        return<div key={c.id} onClick={()=>{onClose();onSelectCustomer(c);}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid #f1f5f9",cursor:"pointer",background:"#fff"}} onMouseEnter={e=>e.currentTarget.style.background="#f0f9ff"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{fontSize:20}}>{typeIcons[c.type]||"🏪"}</div>
+            <div>
+              <div style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>{c.name}</div>
+              <div style={{fontSize:12,color:"#64748b"}}>{c.town} · {c.type}{c.contact?` · 👤 ${c.contact}`:""}</div>
+              {c.phone&&<a href={`tel:${c.phone}`} onClick={e=>e.stopPropagation()} style={{fontSize:12,color:"#2563eb",textDecoration:"none",fontWeight:500}}>📞 {c.phone}</a>}
+            </div>
+          </div>
+          <div style={{textAlign:"right",minWidth:100}}>
+            <PriBadge p={c.priority}/>
+            {c.nextFollowUp&&<div style={{fontSize:12,fontWeight:700,color:overdue?"#dc2626":"#d97706",marginTop:4}}>{overdue?`⚠️ ${Math.abs(days)}d overdue`:formatDate(c.nextFollowUp)}</div>}
+            <SpendBadge spend={c.monthlySpend}/>
+          </div>
+        </div>;
+      })}
+    </div>
+  );
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -484,9 +472,9 @@ function WeeklyCallList({customers,onClose,onSelectCustomer}){
           <div style={{background:"#fff7ed",border:"1.5px solid #fed7aa",borderRadius:10,padding:"10px 16px",marginBottom:16,fontSize:13,color:"#92400e",fontWeight:600}}>
             💡 Tap any account to open their full profile and log your call notes
           </div>
-          <CallSection title="🔴 Overdue Follow-Ups" items={overdue} emptyMsg="No overdue follow-ups — great work!" bg="#fff5f5" onClose={onClose} onSelectCustomer={onSelectCustomer}/>
-          <CallSection title="📅 This Week" items={thisWeek} emptyMsg="No follow-ups scheduled for this week" bg="#fffbeb" onClose={onClose} onSelectCustomer={onSelectCustomer}/>
-          <CallSection title="⭐ High Priority — No Follow-Up Set" items={highNoFollowup} emptyMsg="All high priority accounts have follow-ups set" bg="#f0f9ff" onClose={onClose} onSelectCustomer={onSelectCustomer}/>
+          <Section title="🔴 Overdue Follow-Ups" items={overdue} emptyMsg="No overdue follow-ups — great work!" bg="#fff5f5"/>
+          <Section title="📅 This Week" items={thisWeek} emptyMsg="No follow-ups scheduled for this week" bg="#fffbeb"/>
+          <Section title="⭐ High Priority — No Follow-Up Set" items={highNoFollowup} emptyMsg="All high priority accounts have follow-ups set" bg="#f0f9ff"/>
         </div>
       </div>
     </div>
@@ -664,8 +652,6 @@ function RoutePlanner({customers,onClose}){
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
-
-
 export default function App(){
   const [customers,setCustomers]   = useState(INITIAL_CUSTOMERS);
   const [search,setSearch]         = useState("");
@@ -683,6 +669,9 @@ export default function App(){
   const [showCalls,setShowCalls]   = useState(false);
   const [activeTab,setActiveTab]   = useState("all");
 
+  const updC=useCallback(u=>setCustomers(cs=>cs.map(c=>c.id===u.id?u:c)),[]);
+  const delC=useCallback(id=>setCustomers(cs=>cs.filter(c=>c.id!==id)),[]);
+  const addC=useCallback(c=>setCustomers(cs=>[...cs,c]),[]);
 
   const filtered=useMemo(()=>{
     let list=activeTab==="stocking"?customers.filter(c=>c.isStocking):customers;
@@ -699,19 +688,14 @@ export default function App(){
     return list;
   },[customers,search,townF,priF,stsF,sortBy,activeTab]);
 
-  const stats=useMemo(()=>{
-    try {
-      const safeCustomers = Array.isArray(customers) ? customers : [];
-      return {
-        total:safeCustomers.length,
-        active:safeCustomers.filter(c=>c.status==="Customer"||c.status==="Active").length,
-        followups:safeCustomers.filter(c=>c.nextFollowUp).length,
-        stocking:safeCustomers.filter(c=>c.isStocking).length,
-        reorders:safeCustomers.filter(c=>c.isStocking).flatMap(c=>Array.isArray(c.inventory)?c.inventory.filter(i=>Number(i.currentStock)<Number(i.parLevel)):[]).length,
-        overdue:safeCustomers.filter(c=>c.nextFollowUp&&c.nextFollowUp<today()).length,
-      };
-    } catch(e) { return {total:0,active:0,followups:0,stocking:0,reorders:0,overdue:0}; }
-  },[customers]);
+  const stats=useMemo(()=>({
+    total:customers.length,
+    active:customers.filter(c=>c.status==="Customer"||c.status==="Active").length,
+    followups:customers.filter(c=>c.nextFollowUp).length,
+    stocking:customers.filter(c=>c.isStocking).length,
+    reorders:customers.filter(c=>c.isStocking).flatMap(c=>(c.inventory||[]).filter(i=>i.currentStock<i.parLevel)).length,
+    overdue:customers.filter(c=>c.nextFollowUp&&c.nextFollowUp<today()).length,
+  }),[customers]);
 
   return(
     <div style={{fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",background:"#f1f5f9",minHeight:"100vh"}}>
@@ -719,9 +703,9 @@ export default function App(){
       {/* ── HEADER ── */}
       <div style={{background:"#1e293b",position:"sticky",top:0,zIndex:50,borderBottom:"3px solid #cc0000"}}>
         {/* Desktop header — single row */}
-        <div style={{display:"flex",maxWidth:1440,margin:"0 auto",padding:"0 24px",height:64,alignItems:"center",justifyContent:"space-between",gap:16}}>
+        <div style={{display:"none",maxWidth:1440,margin:"0 auto",padding:"0 24px",height:64,alignItems:"center",justifyContent:"space-between",gap:16}} className="desktop-header">
           <div style={{display:"flex",gap:24,alignItems:"center"}}>
-            {[["🏢",stats.total||0,"Accounts"],["✅",stats.active||0,"Customers"],["📅",stats.overdue>0?`${stats.overdue} overdue`:(stats.followups||0),"Follow-ups"],["🔴",stats.reorders||0,"Reorders"]].map(([icon,val,label])=>(
+            {[["🏢",stats.total,"Accounts"],["✅",stats.active,"Customers"],["📅",stats.overdue>0?`${stats.overdue} overdue`:stats.followups,"Follow-ups"],["🔴",stats.reorders,"Reorders"]].map(([icon,val,label])=>(
               <div key={label} style={{textAlign:"center"}}>
                 <div style={{color:label==="Reorders"&&stats.reorders>0?"#ef4444":label==="Follow-ups"&&stats.overdue>0?"#fbbf24":"#fff",fontWeight:800,fontSize:17,lineHeight:1}}>{icon} {val}</div>
                 <div style={{color:"#94a3b8",fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginTop:3}}>{label}</div>
@@ -736,8 +720,8 @@ export default function App(){
             <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:12,padding:"8px 14px"}}>➕ Add</button>
           </div>
         </div>
-        {/* Mobile header — two rows, hidden on desktop via JS */}
-        <div style={{display:"none"}}>
+        {/* Mobile header — two rows */}
+        <div style={{padding:"10px 14px 8px"}} className="mobile-header">
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
             {[["🏢",stats.total,"Accounts"],["✅",stats.active,"Customers"],["📅",stats.overdue>0?stats.overdue:stats.followups,"Follow-ups"],["🔴",stats.reorders,"Reorders"]].map(([icon,val,label])=>(
               <div key={label} style={{textAlign:"center"}}>
@@ -753,10 +737,14 @@ export default function App(){
             <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?"#dc2626":"#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>📦<br/>Inv{stats.reorders>0?` ${stats.reorders}`:""}</button>
             <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>➕<br/>Add</button>
           </div>
-          
         </div>
       </div>
-
+      <style>{`
+        @media (min-width: 640px) {
+          .desktop-header { display: flex !important; }
+          .mobile-header { display: none !important; }
+        }
+      `}</style>
 
       {/* ── TABS ── */}
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 24px"}}>
