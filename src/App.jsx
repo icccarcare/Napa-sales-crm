@@ -4,8 +4,14 @@ import { createClient } from "@supabase/supabase-js";
 // ─── SUPABASE CLIENT ─────────────────────────────────────────────────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-// Temporarily disabled to test static rendering
-const supabase = null; // SUPABASE_URL ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+let _supabaseInstance = null;
+function getSupabase() {
+  if (!_supabaseInstance && SUPABASE_URL && SUPABASE_ANON_KEY) {
+    try { _supabaseInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } 
+    catch(e) { console.error("Supabase init failed:", e); }
+  }
+  return _supabaseInstance;
+}
 
 
 // ─── SPEND TIERS ─────────────────────────────────────────────────────────────
@@ -681,14 +687,14 @@ function LoginScreen({onLogin}){
     setLoading(true); setError(""); setMsg("");
     try {
       if(mode==="login"){
-        const {error:e} = await supabase.auth.signInWithPassword({email,password});
+        const {error:e} = await getSupabase().auth.signInWithPassword({email,password});
         if(e) setError(e.message);
       } else if(mode==="signup"){
-        const {error:e} = await supabase.auth.signUp({email,password});
+        const {error:e} = await getSupabase().auth.signUp({email,password});
         if(e) setError(e.message);
         else setMsg("Check your email to confirm your account, then log in.");
       } else {
-        const {error:e} = await supabase.auth.resetPasswordForEmail(email);
+        const {error:e} = await getSupabase().auth.resetPasswordForEmail(email);
         if(e) setError(e.message);
         else setMsg("Password reset email sent — check your inbox.");
       }
@@ -730,7 +736,7 @@ function LoginScreen({onLogin}){
 
 export default function App(){
   const [user,setUser]             = useState(null);
-  const [authChecked,setAuthChecked] = useState(!supabase); // skip if no supabase
+  const [authChecked,setAuthChecked] = useState(!getSupabase()); // skip if no supabase
   const [customers,setCustomers]   = useState(INITIAL_CUSTOMERS);
   const [dbReady,setDbReady]       = useState(false);
   const [search,setSearch]         = useState("");
@@ -750,12 +756,12 @@ export default function App(){
 
   // ── AUTH ──────────────────────────────────────────────────────────────────
   useEffect(()=>{
-    if(!supabase) return;
-    supabase.auth.getSession().then(({data:{session}})=>{
+    if(!getSupabase()) return;
+    getSupabase().auth.getSession().then(({data:{session}})=>{
       setUser(session?.user||null);
       setAuthChecked(true);
     });
-    const {data:{subscription}} = supabase.auth.onAuthStateChange((_,session)=>{
+    const {data:{subscription}} = getSupabase().auth.onAuthStateChange((_,session)=>{
       setUser(session?.user||null);
     });
     return ()=>subscription.unsubscribe();
@@ -763,14 +769,14 @@ export default function App(){
 
   // ── LOAD DATA FROM DB ─────────────────────────────────────────────────────
   useEffect(()=>{
-    if(!supabase||!user) return;
+    if(!getSupabase()||!user) return;
     loadCustomers();
   },[user]);
 
   const loadCustomers = async () => {
-    if(!supabase) return;
+    if(!getSupabase()) return;
     try {
-      const {data,error} = await supabase.from("customers").select("*").order("name");
+      const {data,error} = await getSupabase().from("customers").select("*").order("name");
       if(error){ console.error("Load error:",error); setDbReady(true); return; }
       if(data && data.length > 0){
         const mapped = data.map(r=>({
@@ -815,7 +821,7 @@ export default function App(){
   };
 
   const seedDatabase = async () => {
-    if(!supabase) return;
+    if(!getSupabase()) return;
     const rows = INITIAL_CUSTOMERS.map(c=>({
       id: c.id, name: c.name, type: c.type, town: c.town,
       address: c.address, full_address: c.fullAddress, phone: c.phone,
@@ -827,7 +833,7 @@ export default function App(){
       notes: c.notes||"", rel_score: c.relScore||"",
       is_stocking: c.isStocking||false, inventory: c.inventory||[]
     }));
-    const {error} = await supabase.from("customers").upsert(rows);
+    const {error} = await getSupabase().from("customers").upsert(rows);
     if(error) console.error("Seed error:",error);
     else setCustomers(INITIAL_CUSTOMERS);
   };
@@ -835,8 +841,8 @@ export default function App(){
   // ── CRUD WITH DB SYNC ─────────────────────────────────────────────────────
   const updC = useCallback(async (u) => {
     setCustomers(cs=>cs.map(c=>c.id===u.id?u:c));
-    if(!supabase) return;
-    await supabase.from("customers").update({
+    if(!getSupabase()) return;
+    await getSupabase().from("customers").update({
       name:u.name, type:u.type, town:u.town, address:u.address,
       full_address:u.fullAddress, phone:u.phone, contact:u.contact||"",
       email:u.email||"", priority:u.priority, status:u.status||"",
@@ -850,14 +856,14 @@ export default function App(){
 
   const delC = useCallback(async (id) => {
     setCustomers(cs=>cs.filter(c=>c.id!==id));
-    if(!supabase) return;
-    await supabase.from("customers").delete().eq("id",id);
+    if(!getSupabase()) return;
+    await getSupabase().from("customers").delete().eq("id",id);
   },[]);
 
   const addC = useCallback(async (c) => {
     setCustomers(cs=>[...cs,c]);
-    if(!supabase) return;
-    await supabase.from("customers").insert({
+    if(!getSupabase()) return;
+    await getSupabase().from("customers").insert({
       id: c.id, name:c.name, type:c.type, town:c.town,
       address:c.address, full_address:c.fullAddress||`${c.address}, ${c.town}, TX`,
       phone:c.phone||"", contact:c.contact||"", email:c.email||"",
@@ -879,7 +885,7 @@ export default function App(){
       <div style={{color:"#94a3b8",fontSize:14}}>Loading...</div>
     </div>
   );
-  if(supabase && !user) return <LoginScreen onLogin={setUser}/>;
+  if(getSupabase() && !user) return <LoginScreen onLogin={setUser}/>;
   // Safety check - ensure customers is always a valid array
   if(!Array.isArray(customers)) return <div>Initializing...</div>;
 
@@ -952,7 +958,7 @@ export default function App(){
             <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?"#dc2626":"#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>📦<br/>Inv{stats.reorders>0?` ${stats.reorders}`:""}</button>
             <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>➕<br/>Add</button>
           </div>
-          {supabase&&user&&<div style={{textAlign:"right",marginTop:6}}><button onClick={()=>supabase.auth.signOut()} style={{background:"none",border:"none",color:"#64748b",fontSize:11,cursor:"pointer"}}>🚪 Sign out</button></div>}
+          {getSupabase()&&user&&<div style={{textAlign:"right",marginTop:6}}><button onClick={()=>getSupabase().auth.signOut()} style={{background:"none",border:"none",color:"#64748b",fontSize:11,cursor:"pointer"}}>🚪 Sign out</button></div>}
         </div>
       </div>
 
