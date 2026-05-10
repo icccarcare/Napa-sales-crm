@@ -777,7 +777,8 @@ export default function App(){
     if(!SUPABASE_URL||!SUPABASE_ANON_KEY){ setAuthChecked(true); return; }
     let subscription = null;
     getSupabaseAsync().then(sb => {
-      if(!sb){ setAuthChecked(true); return; }
+      if(!sb){ console.error("Supabase failed to init"); setAuthChecked(true); return; }
+      console.log("Supabase initialized successfully");
       sb.auth.getSession().then(({data:{session}})=>{
         setUser(session?.user||null);
         setAuthChecked(true);
@@ -987,7 +988,7 @@ export default function App(){
             <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?"#dc2626":"#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>📦<br/>Inv{stats.reorders>0?` ${stats.reorders}`:""}</button>
             <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>➕<br/>Add</button>
           </div>
-          {getSupabase()&&user&&<div style={{textAlign:"right",marginTop:6}}><button onClick={()=>getSupabase().auth.signOut()} style={{background:"none",border:"none",color:"#64748b",fontSize:11,cursor:"pointer"}}>🚪 Sign out</button></div>}
+          {SUPABASE_URL&&!!user&&<div style={{textAlign:"right",marginTop:6}}><button onClick={()=>getSupabaseAsync().then(sb=>sb&&sb.auth.signOut())} style={{background:"none",border:"none",color:"#64748b",fontSize:11,cursor:"pointer"}}>🚪 Sign out</button></div>}
         </div>
       </div>
 
