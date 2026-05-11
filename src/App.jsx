@@ -2,93 +2,117 @@ import { useState, useMemo, useCallback } from "react";
 
 // ─── SPEND TIERS ─────────────────────────────────────────────────────────────
 const SPEND_TIERS = [
-  { label:"$1,500+",    min:1500, max:Infinity, color:"#16a34a", bg:"#dcfce7", dot:"#16a34a" },
-  { label:"$750–1,500", min:750,  max:1499,     color:"#0891b2", bg:"#cffafe", dot:"#0891b2" },
-  { label:"$500–750",   min:500,  max:749,       color:"#d97706", bg:"#fef3c7", dot:"#d97706" },
-  { label:"$250–500",   min:250,  max:499,       color:"#ea580c", bg:"#ffedd5", dot:"#ea580c" },
-  { label:"<$250",      min:1,    max:249,       color:"#dc2626", bg:"#fee2e2", dot:"#dc2626" },
-  { label:"Prospect",   min:0,    max:0,         color:"#6b7280", bg:"#f3f4f6", dot:"#9ca3af" },
+  { value:"1500+",    label:"$1,500+",    color:"#16a34a", bg:"#dcfce7", dot:"#16a34a" },
+  { value:"750-1500", label:"$750–1,500", color:"#0891b2", bg:"#cffafe", dot:"#0891b2" },
+  { value:"500-750",  label:"$500–750",   color:"#d97706", bg:"#fef3c7", dot:"#d97706" },
+  { value:"250-500",  label:"$250–500",   color:"#ea580c", bg:"#ffedd5", dot:"#ea580c" },
+  { value:"<250",     label:"<$250",      color:"#dc2626", bg:"#fee2e2", dot:"#dc2626" },
+  { value:"",         label:"Prospect",   color:"#6b7280", bg:"#f3f4f6", dot:"#9ca3af" },
 ];
 const getSpendTier = spend => {
-  const n = parseFloat(spend)||0;
-  if (!n) return SPEND_TIERS[5];
-  return SPEND_TIERS.find(t=>n>=t.min&&n<=t.max)||SPEND_TIERS[5];
+  if(!spend) return SPEND_TIERS[5];
+  return SPEND_TIERS.find(t=>t.value===spend)||SPEND_TIERS[5];
 };
+// Spend tier dropdown options with colors embedded in label
+const SPEND_OPTIONS = [
+  {value:"",        label:"— Select Spend Tier —", color:"#6b7280"},
+  {value:"1500+",   label:"🟢  $1,500+ / month",    color:"#16a34a"},
+  {value:"750-1500",label:"🔵  $750 – $1,500 / mo", color:"#0891b2"},
+  {value:"500-750", label:"🟡  $500 – $750 / mo",   color:"#d97706"},
+  {value:"250-500", label:"🟠  $250 – $500 / mo",   color:"#ea580c"},
+  {value:"<250",    label:"🔴  Under $250 / mo",    color:"#dc2626"},
+];
+// ─── NAPA HOME BASE ───────────────────────────────────────────────────────────
+const NAPA_STORE = { name:"NAPA Auto Parts - Pilot Point", address:"1333 US-377, Pilot Point, TX 76258", lat:33.3998, lng:-96.9601 };
+
+// Haversine distance in miles
+function distMiles(lat1,lng1,lat2,lng2){
+  const R=3958.8, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function distFromStore(c){ return c.lat&&c.lng ? distMiles(NAPA_STORE.lat,NAPA_STORE.lng,c.lat,c.lng) : 999; }
+
+
 
 // ─── CUSTOMER DATA ────────────────────────────────────────────────────────────
 const INITIAL_CUSTOMERS = [
-  { id:1,   name:"JB's Auto Repair",                  type:"Auto Repair",        town:"Pilot Point",  address:"615 S Massey St",         fullAddress:"615 S Massey St, Pilot Point, TX 76258",            phone:"940-273-3323",   contact:"James",         email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"1",     monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] },
-  { id:2,   name:"Al's Qwik E Lube",                  type:"Quick Lube",         town:"Pilot Point",  address:"1117 US-377",              fullAddress:"1117 US-377, Pilot Point, TX 76258",                phone:"(940) 686-5823", contact:"",              email:"", rating:"4.5", reviews:94,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Bulk oil / recurring",                     relScore:"", isStocking:false, inventory:[] },
-  { id:3,   name:"Bryant's Tire Shop",                type:"Tire Shop",          town:"Pilot Point",  address:"400 US-377",               fullAddress:"400 US-377, Pilot Point, TX 76258",                 phone:"940-286-8473",   contact:"",              email:"", rating:"4.6", reviews:164, priority:"High",   status:"Customer",  acctNum:"288",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Used tires",                               relScore:"", isStocking:false, inventory:[] },
-  { id:4,   name:"Key Auto Repairs",                  type:"Auto Repair",        town:"Pilot Point",  address:"608 N Washington St",      fullAddress:"608 N Washington St, Pilot Point, TX 76258",        phone:"940-218-5439",   contact:"Steven",        email:"", rating:"4.9", reviews:41,  priority:"High",   status:"Customer",  acctNum:"235",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General repairs",                          relScore:"", isStocking:false, inventory:[] },
-  { id:5,   name:"Caliber Collision",                 type:"Auto Body",          town:"Pilot Point",  address:"8600 US-377",              fullAddress:"8600 US-377, Pilot Point, TX 76258",                phone:"(940) 290-0305", contact:"",              email:"", rating:"4.9", reviews:79,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Collision / body",                         relScore:"", isStocking:false, inventory:[] },
-  { id:6,   name:"Mark's Body Shop",                  type:"Auto Body",          town:"Pilot Point",  address:"1112 US-377",              fullAddress:"1112 US-377, Pilot Point, TX 76258",                phone:"940-686-5194",   contact:"Mark",          email:"", rating:"4.9", reviews:40,  priority:"High",   status:"Customer",  acctNum:"1350",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Body shop",                                relScore:"", isStocking:false, inventory:[] },
-  { id:7,   name:"Speed Shop Garage",                 type:"Restoration",        town:"Pilot Point",  address:"1145 Jc Ln",               fullAddress:"1145 Jc Ln, Pilot Point, TX 76258",                 phone:"(469) 756-9065", contact:"",              email:"", rating:"5.0", reviews:1,   priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Classic restoration",                      relScore:"", isStocking:false, inventory:[] },
-  { id:8,   name:"R&M Garage LLC",                    type:"Auto Repair",        town:"Pilot Point",  address:"10221 FM 455 E",           fullAddress:"10221 FM 455 E, Pilot Point, TX 76258",             phone:"214-354-3353",   contact:"Brian",         email:"", rating:"4.9", reviews:39,  priority:"High",   status:"Customer",  acctNum:"1851",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Full service",                             relScore:"", isStocking:false, inventory:[] },
-  { id:9,   name:"All American Towing",               type:"Towing",             town:"Pilot Point",  address:"561 E Blackjack Rd",       fullAddress:"561 E Blackjack Rd, Pilot Point, TX 76258",         phone:"(940) 627-2800", contact:"",              email:"", rating:"4.2", reviews:82,  priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Fleet / towing",                           relScore:"", isStocking:false, inventory:[] },
-  { id:10,  name:"Dan's Equipment Sales",             type:"Tractor Dealer",     town:"Pilot Point",  address:"1212 S Washington St",     fullAddress:"1212 S Washington St, Pilot Point, TX 76258",       phone:"940-206-2809",   contact:"Dan",           email:"", rating:"4.3", reviews:27,  priority:"High",   status:"Customer",  acctNum:"1440",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Equipment / tractor sales",                relScore:"", isStocking:false, inventory:[] },
-  { id:11,  name:"Big Brand Tire & Service (PP)",     type:"Tire Shop",          town:"Pilot Point",  address:"1321 N Hwy 377",           fullAddress:"1321 N Hwy 377, Pilot Point, TX 76258",             phone:"940-686-8473",   contact:"John",          email:"", rating:"4.7", reviews:573, priority:"High",   status:"Customer",  acctNum:"4017",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Stocking: filters & batteries",            relScore:"", isStocking:true,  inventory:[{id:"bb-pp-1",partNum:"21348",description:"Oil Filter",parLevel:12,currentStock:0},{id:"bb-pp-2",partNum:"78-8C",description:"Battery Grp 78",parLevel:4,currentStock:0}] },
-  { id:12,  name:"Luna's Mod Shop",                   type:"Mechanic",           town:"Pilot Point",  address:"703 Brenda's Way",         fullAddress:"703 Brenda's Way, Pilot Point, TX 76258",           phone:"214-500-7137",   contact:"Alex",          email:"", rating:"5.0", reviews:42,  priority:"High",   status:"Customer",  acctNum:"201",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General mechanic",                         relScore:"", isStocking:false, inventory:[] },
-  { id:13,  name:"Sanchez Tire Shop",                 type:"Tire Shop",          town:"Pilot Point",  address:"208 W Walcott St",         fullAddress:"208 W Walcott St, Pilot Point, TX 76258",           phone:"940-300-7209",   contact:"Sanchez",       email:"", rating:"4.4", reviews:28,  priority:"High",   status:"Customer",  acctNum:"39",    monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Tire service",                             relScore:"", isStocking:false, inventory:[] },
-  { id:14,  name:"JJRush Performance & Automotive",   type:"Auto Repair",        town:"Pilot Point",  address:"303 W Walcott St",         fullAddress:"303 W Walcott St, Pilot Point, TX 76258",           phone:"940-686-6860",   contact:"JJ",            email:"", rating:"4.2", reviews:137, priority:"High",   status:"Customer",  acctNum:"17",    monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Performance automotive",                   relScore:"", isStocking:false, inventory:[] },
-  { id:15,  name:"Platinum Ford North (Parts)",       type:"Auto Parts Store",   town:"Pilot Point",  address:"11590 S Hwy 377",          fullAddress:"11590 S Hwy 377, Pilot Point, TX 76258",            phone:"940-686-2236",   contact:"Jack",          email:"", rating:"5.0", reviews:4,   priority:"High",   status:"Customer",  acctNum:"1410",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Dealership parts department",              relScore:"", isStocking:false, inventory:[] },
-  { id:16,  name:"Paschal Performance",               type:"Auto Repair",        town:"Pilot Point",  address:"930 N Hwy 377",            fullAddress:"930 N Hwy 377, Pilot Point, TX 76258",              phone:"817-578-5308",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"231",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] },
-  { id:17,  name:"Outback Garage",                    type:"Auto Repair",        town:"Pilot Point",  address:"1321 N Saint James Rd",    fullAddress:"1321 N Saint James Rd, Pilot Point, TX 76258",      phone:"940-300-1149",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"819",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] },
-  { id:18,  name:"TNJ's Automotive",                  type:"Auto Repair",        town:"Pilot Point",  address:"700 N Jefferson St",       fullAddress:"700 N Jefferson St, Pilot Point, TX 76258",         phone:"940-442-3811",   contact:"Tony",          email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"186",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] },
-  { id:19,  name:"North TX Precision Machining",      type:"Machine Shop",       town:"Pilot Point",  address:"1216 N Hwy 377",           fullAddress:"1216 N Hwy 377, Pilot Point, TX 76258",             phone:"940-686-2326",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"145",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] },
-  { id:20,  name:"Staley Steel",                      type:"Steel Fabrication",  town:"Pilot Point",  address:"9620 St John Rd",          fullAddress:"9620 St John Rd, Pilot Point, TX 76258",            phone:"940-686-6000",   contact:"Dale",          email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"3200",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] },
-  { id:21,  name:"Ardon Brothers Tire Shop",          type:"Tire Shop",          town:"Pilot Point",  address:"1293 US-377",              fullAddress:"1293 US-377, Pilot Point, TX 76258",                phone:"(214) 586-4009", contact:"",              email:"", rating:"5.0", reviews:2,   priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Tire and repair",                          relScore:"", isStocking:false, inventory:[] },
-  { id:30,  name:"Cummins Auto",                      type:"Auto Repair",        town:"Sanger",       address:"1220 FM 455 W Unit E1",    fullAddress:"1220 FM 455 W, Sanger, TX 76266",                   phone:"(940) 735-6752", contact:"",              email:"", rating:"4.5", reviews:46,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General repair",                           relScore:"", isStocking:false, inventory:[] },
-  { id:31,  name:"After Hours Motorsports",           type:"Jeep / Off-Road",    town:"Sanger",       address:"8307 FM 2164 Bldg 6",      fullAddress:"8307 FM 2164, Sanger, TX 76266",                    phone:"(940) 735-3500", contact:"",              email:"", rating:"4.9", reviews:53,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Jeep specialist",                          relScore:"", isStocking:false, inventory:[] },
-  { id:32,  name:"Randy's of Sanger",                 type:"Auto Repair",        town:"Sanger",       address:"203 W Chapman Dr",         fullAddress:"203 W Chapman Dr, Sanger, TX 76266",                phone:"(940) 535-4045", contact:"",              email:"", rating:"4.5", reviews:76,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Multi-service",                            relScore:"", isStocking:false, inventory:[] },
-  { id:33,  name:"Family First Automotive",           type:"Auto Repair",        town:"Sanger",       address:"300 N Stemmons St",        fullAddress:"300 N Stemmons St, Sanger, TX 76266",               phone:"(940) 458-8519", contact:"",              email:"", rating:"4.7", reviews:120, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General repair",                           relScore:"", isStocking:false, inventory:[] },
-  { id:34,  name:"Marvin's Auto Repair",              type:"Auto Repair",        town:"Sanger",       address:"209 E Chapman Dr",         fullAddress:"209 E Chapman Dr, Sanger, TX 76266",                phone:"(940) 458-5211", contact:"",              email:"", rating:"4.9", reviews:41,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General automotive",                       relScore:"", isStocking:false, inventory:[] },
-  { id:35,  name:"City of Sanger",                    type:"Municipal Fleet",    town:"Sanger",       address:"100 Cherry St",            fullAddress:"100 Cherry St, Sanger, TX 76266",                   phone:"940-458-4721",   contact:"",              email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"97",    monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Municipal fleet",                          relScore:"", isStocking:false, inventory:[] },
-  { id:36,  name:"Renewal Contractors",               type:"Construction",       town:"Sanger",       address:"7139 Odum Rd",             fullAddress:"7139 Odum Rd, Sanger, TX 76266",                    phone:"972-523-4414",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"430",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] },
-  { id:37,  name:"Bonet Transmission & Auto Repair",  type:"Transmission Shop",  town:"Sanger",       address:"1252 FM 455 W",            fullAddress:"1252 FM 455 W, Sanger, TX 76266",                   phone:"(940) 395-5231", contact:"",              email:"", rating:"5.0", reviews:3,   priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Transmission specialist",                  relScore:"", isStocking:false, inventory:[] },
-  { id:40,  name:"Fifth Gear Automotive",             type:"Auto Repair",        town:"Cross Roads",  address:"7351 US-377",              fullAddress:"7351 US-377, Cross Roads, TX 76227",                phone:"817-540-7500",   contact:"Calvin",        email:"", rating:"4.9", reviews:668, priority:"High",   status:"Customer",  acctNum:"258",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Highest volume. Rotors for police, Mobil 1 ULV.",  relScore:"", isStocking:false, inventory:[] },
-  { id:41,  name:"Big Brand Tire & Service (CR)",     type:"Tire Shop",          town:"Cross Roads",  address:"100 Naylor Rd",            fullAddress:"100 Naylor Rd, Cross Roads, TX 76227",              phone:"940-240-6828",   contact:"Brian",         email:"", rating:"4.6", reviews:600, priority:"High",   status:"Customer",  acctNum:"4014",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Stocking: filters & batteries",            relScore:"", isStocking:true,  inventory:[{id:"bb-cr-1",partNum:"21348",description:"Oil Filter",parLevel:12,currentStock:0},{id:"bb-cr-2",partNum:"78-8C",description:"Battery Grp 78",parLevel:4,currentStock:0}] },
-  { id:50,  name:"Providence Automotive",             type:"Auto Repair",        town:"Aubrey",       address:"2761 FM 2931",             fullAddress:"2761 FM 2931, Aubrey, TX 76227",                    phone:"940-365-9410",   contact:"Mike/Andrew",   email:"", rating:"4.9", reviews:537, priority:"High",   status:"Customer",  acctNum:"50088", monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Large shop",                               relScore:"", isStocking:false, inventory:[] },
-  { id:51,  name:"Aubrey Automotive Repair Center",   type:"Auto Repair",        town:"Aubrey",       address:"800 US-377",               fullAddress:"800 US-377, Aubrey, TX 76227",                      phone:"(940) 365-1002", contact:"",              email:"", rating:"4.8", reviews:160, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Strong reviews",                           relScore:"", isStocking:false, inventory:[] },
-  { id:52,  name:"Ultimate Auto Repair",              type:"Auto Repair",        town:"Aubrey",       address:"700 US-377",               fullAddress:"700 US-377, Aubrey, TX 76227",                      phone:"(940) 365-9997", contact:"",              email:"", rating:"4.5", reviews:111, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Busy general",                             relScore:"", isStocking:false, inventory:[] },
-  { id:53,  name:"Superhero Automotive Repairs",      type:"Auto Repair",        town:"Aubrey",       address:"9053 Ike Byrom Rd",        fullAddress:"9053 Ike Byrom Rd, Aubrey, TX 76227",               phone:"(940) 945-7987", contact:"",              email:"", rating:"4.9", reviews:48,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Excellent reviews",                        relScore:"", isStocking:false, inventory:[] },
-  { id:54,  name:"GTG RV Repair & Rentals",           type:"RV Repair",          town:"Aubrey",       address:"4320 US-377",              fullAddress:"4320 US-377, Aubrey, TX 76227",                     phone:"940-334-7471",   contact:"Kristi",        email:"", rating:"4.8", reviews:66,  priority:"High",   status:"Customer",  acctNum:"245",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Great relationship — call us first.",      relScore:"", isStocking:false, inventory:[] },
-  { id:55,  name:"AntiMatter Performance",            type:"Performance",        town:"Aubrey",       address:"2601 Wheeler Ave",         fullAddress:"2601 Wheeler Ave, Aubrey, TX 76227",                phone:"(972) 342-8871", contact:"",              email:"", rating:"5.0", reviews:87,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Performance",                              relScore:"", isStocking:false, inventory:[] },
-  { id:56,  name:"Stett's Diesel Trucks",             type:"Diesel Truck",       town:"Aubrey",       address:"2160 Rockhill Rd",         fullAddress:"2160 Rockhill Rd, Aubrey, TX 76227",                phone:"(972) 423-3310", contact:"",              email:"", rating:"5.0", reviews:45,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Diesel trucks",                            relScore:"", isStocking:false, inventory:[] },
-  { id:57,  name:"428Auto",                           type:"Auto Repair",        town:"Aubrey",       address:"110 N Sherman Dr",         fullAddress:"110 N Sherman Dr, Aubrey, TX 76227",                phone:"469-779-5195",   contact:"",              email:"", rating:"4.1", reviews:14,  priority:"Medium", status:"Customer",  acctNum:"278",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Smaller shop",                             relScore:"", isStocking:false, inventory:[] },
-  { id:58,  name:"DFW Luxury Automotive Group",       type:"Auto Repair",        town:"Aubrey",       address:"1518 Navo Rd Suite B-01",  fullAddress:"1518 Navo Rd, Aubrey, TX 76227",                    phone:"(214) 404-2881", contact:"",              email:"", rating:"4.9", reviews:163, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Luxury automotive",                        relScore:"", isStocking:false, inventory:[] },
-  { id:59,  name:"Brad's Automotive (Aubrey)",        type:"Auto Repair",        town:"Aubrey",       address:"210 S Hwy 377",            fullAddress:"210 S Hwy 377, Aubrey, TX 76227",                   phone:"940-365-9006",   contact:"Brad",          email:"", rating:"4.9", reviews:44,  priority:"High",   status:"Customer",  acctNum:"273",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General repair",                           relScore:"", isStocking:false, inventory:[] },
-  { id:60,  name:"Frank Bartel Transportation",       type:"Trucking",           town:"Aubrey",       address:"7401 US-377",              fullAddress:"7401 US-377, Aubrey, TX 76227",                     phone:"940-440-3230",   contact:"Miguel",        email:"", rating:"4.5", reviews:22,  priority:"High",   status:"Customer",  acctNum:"1635",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Heavy trucking. Stocking account.",        relScore:"", isStocking:true,  inventory:[{id:"fbt-1",partNum:"21348",description:"Oil Filter",parLevel:6,currentStock:0},{id:"fbt-2",partNum:"LF-9080",description:"HD Oil Filter",parLevel:4,currentStock:0}] },
-  { id:61,  name:"Moss Performance",                  type:"ATV Repair",         town:"Aubrey",       address:"2576 FM 455",              fullAddress:"2576 FM 455, Aubrey, TX 76227",                     phone:"702-441-5851",   contact:"",              email:"", rating:"4.4", reviews:55,  priority:"Medium", status:"Customer",  acctNum:"246",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"ATV / powersports",                        relScore:"", isStocking:false, inventory:[] },
-  { id:62,  name:"Big Brand Tire & Service (SAV)",    type:"Tire Shop",          town:"Aubrey",       address:"26779 US-380",             fullAddress:"26779 US-380, Aubrey, TX 76227",                    phone:"469-715-0028",   contact:"Danny",         email:"", rating:"4.6", reviews:600, priority:"High",   status:"Customer",  acctNum:"4015",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Stocking: filters & batteries",            relScore:"", isStocking:true,  inventory:[{id:"bb-sav-1",partNum:"21348",description:"Oil Filter",parLevel:12,currentStock:0},{id:"bb-sav-2",partNum:"78-8C",description:"Battery Grp 78",parLevel:4,currentStock:0}] },
-  { id:63,  name:"RTEL Construction",                 type:"Construction",       town:"Aubrey",       address:"8291 FM 2931",             fullAddress:"8291 FM 2931, Aubrey, TX 76227",                    phone:"940-365-0895",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"159",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] },
-  { id:64,  name:"BSP Motorsports LLC",               type:"Performance",        town:"Aubrey",       address:"14546 Industrial Park",    fullAddress:"14546 Industrial Park, Aubrey, TX 76227",           phone:"(469) 731-5887", contact:"",              email:"", rating:"4.9", reviews:208, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Performance",                              relScore:"", isStocking:false, inventory:[] },
-  { id:70,  name:"Xclusive Truck Kustoms",            type:"Truck Accessories",  town:"Celina",       address:"200 S Louisiana Dr #120",  fullAddress:"200 S Louisiana Dr, Celina, TX 75009",             phone:"(214) 687-2703", contact:"",              email:"", rating:"4.7", reviews:171, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Truck custom",                             relScore:"", isStocking:false, inventory:[] },
-  { id:71,  name:"Celina Diesel",                     type:"Diesel Repair",      town:"Celina",       address:"11187 Co Rd 95",           fullAddress:"11187 Co Rd 95, Celina, TX 75009",                  phone:"(469) 502-3550", contact:"",              email:"", rating:"5.0", reviews:22,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Diesel specialist",                        relScore:"", isStocking:false, inventory:[] },
-  { id:72,  name:"RX Collision Celina",               type:"Auto Body",          town:"Celina",       address:"112 W Ash St",             fullAddress:"112 W Ash St, Celina, TX 75009",                    phone:"(972) 382-3040", contact:"",              email:"", rating:"4.9", reviews:40,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Collision",                                relScore:"", isStocking:false, inventory:[] },
-  { id:73,  name:"D & V Auto Repair",                 type:"Auto Repair",        town:"Celina",       address:"106 N Louisiana Dr",       fullAddress:"106 N Louisiana Dr, Celina, TX 75009",             phone:"972-382-3601",   contact:"",              email:"", rating:"4.5", reviews:156, priority:"Medium", status:"Customer",  acctNum:"1620",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General",                                  relScore:"", isStocking:false, inventory:[] },
-  { id:74,  name:"FCS Construction LLC",              type:"Construction Fleet", town:"Celina",       address:"1490 N Louisiana Dr",      fullAddress:"1490 N Louisiana Dr, Celina, TX 75009",            phone:"214-551-2348",   contact:"Sean/Barry",    email:"", rating:"4.6", reviews:8,   priority:"High",   status:"Customer",  acctNum:"2800",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Construction fleet",                       relScore:"", isStocking:false, inventory:[] },
-  { id:75,  name:"Dickerson Construction Co",         type:"Construction Fleet", town:"Celina",       address:"1130 N Louisiana Dr",      fullAddress:"1130 N Louisiana Dr, Celina, TX 75009",            phone:"972-382-2123",   contact:"Devin/Blake",   email:"", rating:"3.3", reviews:6,   priority:"Medium", status:"Customer",  acctNum:"28",    monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Will call if needed.",                      relScore:"", isStocking:false, inventory:[] },
-  { id:76,  name:"1876 Country Club",                 type:"Golf / Fleet",       town:"Celina",       address:"3500 N Legacy Dr",         fullAddress:"3500 N Legacy Dr, Celina, TX 75009",               phone:"214-497-1097",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"287",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] },
-  { id:80,  name:"Hickman Creations",                 type:"Auto Restoration",   town:"Gunter",       address:"424 W Main St",            fullAddress:"424 W Main St, Gunter, TX 75058",                   phone:"(903) 228-5014", contact:"",              email:"", rating:"4.0", reviews:21,  priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Classic cars",                             relScore:"", isStocking:false, inventory:[] },
-  { id:81,  name:"Rushton Automotive",                type:"Auto Repair",        town:"Gunter",       address:"424 W Main St Suite 6",    fullAddress:"424 W Main St, Gunter, TX 75058",                   phone:"(972) 433-3972", contact:"",              email:"", rating:"5.0", reviews:10,  priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Small repair",                             relScore:"", isStocking:false, inventory:[] },
-  { id:82,  name:"Mario Jr Tire Service",             type:"Tire Shop",          town:"Gunter",       address:"341 Stiff Chapel Rd",      fullAddress:"341 Stiff Chapel Rd, Gunter, TX 75058",             phone:"903-816-1459",   contact:"Mario",         email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"64",    monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] },
-  { id:90,  name:"Three Seventy Seven Tires",         type:"Tire & Oil",         town:"Collinsville", address:"719 US-377",               fullAddress:"719 US-377, Collinsville, TX 76233",                phone:"(903) 429-3425", contact:"",              email:"", rating:"4.6", reviews:66,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Tires + oil",                              relScore:"", isStocking:false, inventory:[] },
-  { id:91,  name:"Collinsville Tire Shop",            type:"Tire Shop",          town:"Collinsville", address:"9415 US-377",              fullAddress:"9415 US-377, Collinsville, TX 76233",               phone:"(214) 549-7306", contact:"",              email:"", rating:"5.0", reviews:72,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Tire shop",                                relScore:"", isStocking:false, inventory:[] },
-  { id:92,  name:"Brad's Automotive (Collinsville)",  type:"Auto Repair",        town:"Collinsville", address:"2118 Dawkins Rd",          fullAddress:"2118 Dawkins Rd, Collinsville, TX 76233",           phone:"(903) 429-6022", contact:"",              email:"", rating:"4.9", reviews:21,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General repair",                           relScore:"", isStocking:false, inventory:[] },
-  { id:93,  name:"Jesse Buttress Sand & Gravel",      type:"Construction",       town:"Collinsville", address:"182 Cobler Rd",            fullAddress:"182 Cobler Rd, Collinsville, TX 76233",             phone:"214-243-7676",   contact:"Jesse",         email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"239",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] },
-  { id:100, name:"Myrt's Paint & Body",               type:"Auto Body",          town:"Tioga",        address:"211 S Donaton St",         fullAddress:"211 S Donaton St, Tioga, TX 76271",                 phone:"(903) 815-5959", contact:"",              email:"", rating:"5.0", reviews:9,   priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Body shop",                                relScore:"", isStocking:false, inventory:[] },
-  { id:101, name:"USA Trucking Inc",                  type:"Trucking",           town:"Tioga",        address:"616 Bodovsky Rd",          fullAddress:"616 Bodovsky Rd, Tioga, TX 76271",                  phone:"940-437-5222",   contact:"",              email:"", rating:"3.3", reviews:7,   priority:"Medium", status:"Customer",  acctNum:"1280",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Bulk hauling",                             relScore:"", isStocking:false, inventory:[] },
-  { id:110, name:"BURNCO Ready-Mix",                  type:"Ready Mix Concrete", town:"Krugerville",  address:"9170 Ike Byrom Rd",        fullAddress:"9170 Ike Byrom Rd, Aubrey, TX 76227",               phone:"469-647-3604",   contact:"Bryant/Roberts",email:"", rating:"4.7", reviews:6,   priority:"High",   status:"Customer",  acctNum:"2560",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Interested in Milwaukee tools.",            relScore:"", isStocking:false, inventory:[] },
-  { id:111, name:"Nuts and Volts Automotive",         type:"Auto Repair",        town:"Krugerville",  address:"4900 US-377",              fullAddress:"4900 US-377, Krugerville, TX 76227",                phone:"972-505-6132",   contact:"Tess/Ryan",     email:"", rating:"4.9", reviews:29,  priority:"High",   status:"Customer",  acctNum:"267",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Call us first — excellent relationship.",  relScore:"", isStocking:false, inventory:[] },
-  { id:112, name:"META COLLISION",                    type:"Auto Body",          town:"Krugerville",  address:"8171 US-377",              fullAddress:"8171 US-377, Krugerville, TX 76227",                phone:"(214) 783-9466", contact:"",              email:"", rating:"5.0", reviews:50,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Collision center",                         relScore:"", isStocking:false, inventory:[] },
-  { id:113, name:"A-Z Bus Sales",                     type:"Fleet / Bus",        town:"Krugerville",  address:"1003 Prosperity Way",      fullAddress:"1003 Prosperity Way, Krugerville, TX 76227",        phone:"214-693-5299",   contact:"Michael/Ashley",email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"238",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"AP dept follow-up. Good relationship.",   relScore:"", isStocking:false, inventory:[] },
-  { id:120, name:"Abilene Diesel Performance DFW",    type:"Diesel Repair",      town:"Valley View",  address:"6444 E Lone Oak Rd",       fullAddress:"6444 E Lone Oak Rd, Valley View, TX 76272",         phone:"940-580-0646",   contact:"Eric/Courtney", email:"", rating:"5.0", reviews:44,  priority:"High",   status:"Customer",  acctNum:"316",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Diesel performance",                       relScore:"", isStocking:false, inventory:[] },
-  { id:130, name:"Big Brand Tire & Service (Sherman)",type:"Tire Shop",          town:"Sherman",      address:"4001 Texoma Pkwy",         fullAddress:"4001 Texoma Pkwy, Sherman, TX 75090",               phone:"903-868-8072",   contact:"Mark",          email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"4016",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Stocking: filters & batteries",            relScore:"", isStocking:true,  inventory:[{id:"bb-sh-1",partNum:"21348",description:"Oil Filter",parLevel:12,currentStock:0},{id:"bb-sh-2",partNum:"78-8C",description:"Battery Grp 78",parLevel:4,currentStock:0}] },
+  { id:1,   name:"JB's Auto Repair",                  type:"Auto Repair",        town:"Pilot Point",  address:"615 S Massey St",         fullAddress:"615 S Massey St, Pilot Point, TX 76258",            phone:"940-273-3323",   contact:"James",         email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"1",     monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] , lat:33.3598, lng:-96.9613, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:2,   name:"Al's Qwik E Lube",                  type:"Quick Lube",         town:"Pilot Point",  address:"1117 US-377",              fullAddress:"1117 US-377, Pilot Point, TX 76258",                phone:"(940) 686-5823", contact:"",              email:"", rating:"4.5", reviews:94,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Bulk oil / recurring",                     relScore:"", isStocking:false, inventory:[] , lat:33.3965, lng:-96.9598, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:3,   name:"Bryant's Tire Shop",                type:"Tire Shop",          town:"Pilot Point",  address:"400 US-377",               fullAddress:"400 US-377, Pilot Point, TX 76258",                 phone:"940-286-8473",   contact:"",              email:"", rating:"4.6", reviews:164, priority:"High",   status:"Customer",  acctNum:"288",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Used tires",                               relScore:"", isStocking:false, inventory:[] , lat:33.3951, lng:-96.9592, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:4,   name:"Key Auto Repairs",                  type:"Auto Repair",        town:"Pilot Point",  address:"608 N Washington St",      fullAddress:"608 N Washington St, Pilot Point, TX 76258",        phone:"940-218-5439",   contact:"Steven",        email:"", rating:"4.9", reviews:41,  priority:"High",   status:"Customer",  acctNum:"235",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General repairs",                          relScore:"", isStocking:false, inventory:[] , lat:33.3972, lng:-96.9574, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:5,   name:"Caliber Collision",                 type:"Auto Body",          town:"Pilot Point",  address:"8600 US-377",              fullAddress:"8600 US-377, Pilot Point, TX 76258",                phone:"(940) 290-0305", contact:"",              email:"", rating:"4.9", reviews:79,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Collision / body",                         relScore:"", isStocking:false, inventory:[] , lat:33.4401, lng:-96.957, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:6,   name:"Mark's Body Shop",                  type:"Auto Body",          town:"Pilot Point",  address:"1112 US-377",              fullAddress:"1112 US-377, Pilot Point, TX 76258",                phone:"940-686-5194",   contact:"Mark",          email:"", rating:"4.9", reviews:40,  priority:"High",   status:"Customer",  acctNum:"1350",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Body shop",                                relScore:"", isStocking:false, inventory:[] , lat:33.3968, lng:-96.9595, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:7,   name:"Speed Shop Garage",                 type:"Restoration",        town:"Pilot Point",  address:"1145 Jc Ln",               fullAddress:"1145 Jc Ln, Pilot Point, TX 76258",                 phone:"(469) 756-9065", contact:"",              email:"", rating:"5.0", reviews:1,   priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Classic restoration",                      relScore:"", isStocking:false, inventory:[] , lat:33.3981, lng:-96.9588, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:8,   name:"R&M Garage LLC",                    type:"Auto Repair",        town:"Pilot Point",  address:"10221 FM 455 E",           fullAddress:"10221 FM 455 E, Pilot Point, TX 76258",             phone:"214-354-3353",   contact:"Brian",         email:"", rating:"4.9", reviews:39,  priority:"High",   status:"Customer",  acctNum:"1851",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Full service",                             relScore:"", isStocking:false, inventory:[] , lat:33.4108, lng:-96.923, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:9,   name:"All American Towing",               type:"Towing",             town:"Pilot Point",  address:"561 E Blackjack Rd",       fullAddress:"561 E Blackjack Rd, Pilot Point, TX 76258",         phone:"(940) 627-2800", contact:"",              email:"", rating:"4.2", reviews:82,  priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Fleet / towing",                           relScore:"", isStocking:false, inventory:[] , lat:33.421, lng:-96.918, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:10,  name:"Dan's Equipment Sales",             type:"Tractor Dealer",     town:"Pilot Point",  address:"1212 S Washington St",     fullAddress:"1212 S Washington St, Pilot Point, TX 76258",       phone:"940-206-2809",   contact:"Dan",           email:"", rating:"4.3", reviews:27,  priority:"High",   status:"Customer",  acctNum:"1440",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Equipment / tractor sales",                relScore:"", isStocking:false, inventory:[] , lat:33.3961, lng:-96.9578, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:11,  name:"Big Brand Tire & Service (PP)",     type:"Tire Shop",          town:"Pilot Point",  address:"1321 N Hwy 377",           fullAddress:"1321 N Hwy 377, Pilot Point, TX 76258",             phone:"940-686-8473",   contact:"John",          email:"", rating:"4.7", reviews:573, priority:"High",   status:"Customer",  acctNum:"4017",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Stocking: filters & batteries",            relScore:"", isStocking:true,  inventory:[{id:"bb-pp-1",partNum:"21348",description:"Oil Filter",parLevel:12,currentStock:0,category:"Oil Filters"},{id:"bb-pp-2",partNum:"78-8C",description:"Battery Grp 78",parLevel:4,currentStock:0,category:"Batteries"}] , lat:33.401, lng:-96.9602, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:12,  name:"Luna's Mod Shop",                   type:"Mechanic",           town:"Pilot Point",  address:"703 Brenda's Way",         fullAddress:"703 Brenda's Way, Pilot Point, TX 76258",           phone:"214-500-7137",   contact:"Alex",          email:"", rating:"5.0", reviews:42,  priority:"High",   status:"Customer",  acctNum:"201",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General mechanic",                         relScore:"", isStocking:false, inventory:[] , lat:33.3975, lng:-96.9585, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:13,  name:"Sanchez Tire Shop",                 type:"Tire Shop",          town:"Pilot Point",  address:"208 W Walcott St",         fullAddress:"208 W Walcott St, Pilot Point, TX 76258",           phone:"940-300-7209",   contact:"Sanchez",       email:"", rating:"4.4", reviews:28,  priority:"High",   status:"Customer",  acctNum:"39",    monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Tire service",                             relScore:"", isStocking:false, inventory:[] , lat:33.3963, lng:-96.957, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:14,  name:"JJRush Performance & Automotive",   type:"Auto Repair",        town:"Pilot Point",  address:"303 W Walcott St",         fullAddress:"303 W Walcott St, Pilot Point, TX 76258",           phone:"940-686-6860",   contact:"JJ",            email:"", rating:"4.2", reviews:137, priority:"High",   status:"Customer",  acctNum:"17",    monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Performance automotive",                   relScore:"", isStocking:false, inventory:[] , lat:33.396, lng:-96.9568, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:15,  name:"Platinum Ford North (Parts)",       type:"Auto Parts Store",   town:"Pilot Point",  address:"11590 S Hwy 377",          fullAddress:"11590 S Hwy 377, Pilot Point, TX 76258",            phone:"940-686-2236",   contact:"Jack",          email:"", rating:"5.0", reviews:4,   priority:"High",   status:"Customer",  acctNum:"1410",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Dealership parts department",              relScore:"", isStocking:false, inventory:[] , lat:33.485, lng:-96.959, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:16,  name:"Paschal Performance",               type:"Auto Repair",        town:"Pilot Point",  address:"930 N Hwy 377",            fullAddress:"930 N Hwy 377, Pilot Point, TX 76258",              phone:"817-578-5308",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"231",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] , lat:33.3985, lng:-96.9596, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:17,  name:"Outback Garage",                    type:"Auto Repair",        town:"Pilot Point",  address:"1321 N Saint James Rd",    fullAddress:"1321 N Saint James Rd, Pilot Point, TX 76258",      phone:"940-300-1149",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"819",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] , lat:33.3978, lng:-96.9591, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:18,  name:"TNJ's Automotive",                  type:"Auto Repair",        town:"Pilot Point",  address:"700 N Jefferson St",       fullAddress:"700 N Jefferson St, Pilot Point, TX 76258",         phone:"940-442-3811",   contact:"Tony",          email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"186",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] , lat:33.399, lng:-96.9582, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:19,  name:"North TX Precision Machining",      type:"Machine Shop",       town:"Pilot Point",  address:"1216 N Hwy 377",           fullAddress:"1216 N Hwy 377, Pilot Point, TX 76258",             phone:"940-686-2326",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"145",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] , lat:33.3988, lng:-96.9598, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:20,  name:"Staley Steel",                      type:"Steel Fabrication",  town:"Pilot Point",  address:"9620 St John Rd",          fullAddress:"9620 St John Rd, Pilot Point, TX 76258",            phone:"940-686-6000",   contact:"Dale",          email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"3200",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] , lat:33.418, lng:-96.932, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:21,  name:"Ardon Brothers Tire Shop",          type:"Tire Shop",          town:"Pilot Point",  address:"1293 US-377",              fullAddress:"1293 US-377, Pilot Point, TX 76258",                phone:"(214) 586-4009", contact:"",              email:"", rating:"5.0", reviews:2,   priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Tire and repair",                          relScore:"", isStocking:false, inventory:[] , lat:33.3975, lng:-96.96, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:30,  name:"Cummins Auto",                      type:"Auto Repair",        town:"Sanger",       address:"1220 FM 455 W Unit E1",    fullAddress:"1220 FM 455 W, Sanger, TX 76266",                   phone:"(940) 735-6752", contact:"",              email:"", rating:"4.5", reviews:46,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General repair",                           relScore:"", isStocking:false, inventory:[] , lat:33.3571, lng:-97.1713, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:31,  name:"After Hours Motorsports",           type:"Jeep / Off-Road",    town:"Sanger",       address:"8307 FM 2164 Bldg 6",      fullAddress:"8307 FM 2164, Sanger, TX 76266",                    phone:"(940) 735-3500", contact:"",              email:"", rating:"4.9", reviews:53,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Jeep specialist",                          relScore:"", isStocking:false, inventory:[] , lat:33.374, lng:-97.195, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:32,  name:"Randy's of Sanger",                 type:"Auto Repair",        town:"Sanger",       address:"203 W Chapman Dr",         fullAddress:"203 W Chapman Dr, Sanger, TX 76266",                phone:"(940) 535-4045", contact:"",              email:"", rating:"4.5", reviews:76,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Multi-service",                            relScore:"", isStocking:false, inventory:[] , lat:33.3599, lng:-97.1698, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:33,  name:"Family First Automotive",           type:"Auto Repair",        town:"Sanger",       address:"300 N Stemmons St",        fullAddress:"300 N Stemmons St, Sanger, TX 76266",               phone:"(940) 458-8519", contact:"",              email:"", rating:"4.7", reviews:120, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General repair",                           relScore:"", isStocking:false, inventory:[] , lat:33.3615, lng:-97.172, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:34,  name:"Marvin's Auto Repair",              type:"Auto Repair",        town:"Sanger",       address:"209 E Chapman Dr",         fullAddress:"209 E Chapman Dr, Sanger, TX 76266",                phone:"(940) 458-5211", contact:"",              email:"", rating:"4.9", reviews:41,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General automotive",                       relScore:"", isStocking:false, inventory:[] , lat:33.3588, lng:-97.1685, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:35,  name:"City of Sanger",                    type:"Municipal Fleet",    town:"Sanger",       address:"100 Cherry St",            fullAddress:"100 Cherry St, Sanger, TX 76266",                   phone:"940-458-4721",   contact:"",              email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"97",    monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Municipal fleet",                          relScore:"", isStocking:false, inventory:[] , lat:33.3621, lng:-97.1728, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:36,  name:"Renewal Contractors",               type:"Construction",       town:"Sanger",       address:"7139 Odum Rd",             fullAddress:"7139 Odum Rd, Sanger, TX 76266",                    phone:"972-523-4414",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"430",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] , lat:33.355, lng:-97.164, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:37,  name:"Bonet Transmission & Auto Repair",  type:"Transmission Shop",  town:"Sanger",       address:"1252 FM 455 W",            fullAddress:"1252 FM 455 W, Sanger, TX 76266",                   phone:"(940) 395-5231", contact:"",              email:"", rating:"5.0", reviews:3,   priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Transmission specialist",                  relScore:"", isStocking:false, inventory:[] , lat:33.3578, lng:-97.1702, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:40,  name:"Fifth Gear Automotive",             type:"Auto Repair",        town:"Cross Roads",  address:"7351 US-377",              fullAddress:"7351 US-377, Cross Roads, TX 76227",                phone:"817-540-7500",   contact:"Calvin",        email:"", rating:"4.9", reviews:668, priority:"High",   status:"Customer",  acctNum:"258",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Highest volume. Rotors for police, Mobil 1 ULV.",  relScore:"", isStocking:false, inventory:[] , lat:33.2271, lng:-97.0218, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:41,  name:"Big Brand Tire & Service (CR)",     type:"Tire Shop",          town:"Cross Roads",  address:"100 Naylor Rd",            fullAddress:"100 Naylor Rd, Cross Roads, TX 76227",              phone:"940-240-6828",   contact:"Brian",         email:"", rating:"4.6", reviews:600, priority:"High",   status:"Customer",  acctNum:"4014",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Stocking: filters & batteries",            relScore:"", isStocking:true,  inventory:[{id:"bb-cr-1",partNum:"21348",description:"Oil Filter",parLevel:12,currentStock:0,category:"Oil Filters"},{id:"bb-cr-2",partNum:"78-8C",description:"Battery Grp 78",parLevel:4,currentStock:0,category:"Batteries"}] , lat:33.2285, lng:-97.0225, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:50,  name:"Providence Automotive",             type:"Auto Repair",        town:"Aubrey",       address:"2761 FM 2931",             fullAddress:"2761 FM 2931, Aubrey, TX 76227",                    phone:"940-365-9410",   contact:"Mike/Andrew",   email:"", rating:"4.9", reviews:537, priority:"High",   status:"Customer",  acctNum:"50088", monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Large shop",                               relScore:"", isStocking:false, inventory:[] , lat:33.2012, lng:-97.0445, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:51,  name:"Aubrey Automotive Repair Center",   type:"Auto Repair",        town:"Aubrey",       address:"800 US-377",               fullAddress:"800 US-377, Aubrey, TX 76227",                      phone:"(940) 365-1002", contact:"",              email:"", rating:"4.8", reviews:160, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Strong reviews",                           relScore:"", isStocking:false, inventory:[] , lat:33.2095, lng:-96.9989, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:52,  name:"Ultimate Auto Repair",              type:"Auto Repair",        town:"Aubrey",       address:"700 US-377",               fullAddress:"700 US-377, Aubrey, TX 76227",                      phone:"(940) 365-9997", contact:"",              email:"", rating:"4.5", reviews:111, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Busy general",                             relScore:"", isStocking:false, inventory:[] , lat:33.2081, lng:-96.9985, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:53,  name:"Superhero Automotive Repairs",      type:"Auto Repair",        town:"Aubrey",       address:"9053 Ike Byrom Rd",        fullAddress:"9053 Ike Byrom Rd, Aubrey, TX 76227",               phone:"(940) 945-7987", contact:"",              email:"", rating:"4.9", reviews:48,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Excellent reviews",                        relScore:"", isStocking:false, inventory:[] , lat:33.195, lng:-97.038, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:54,  name:"GTG RV Repair & Rentals",           type:"RV Repair",          town:"Aubrey",       address:"4320 US-377",              fullAddress:"4320 US-377, Aubrey, TX 76227",                     phone:"940-334-7471",   contact:"Kristi",        email:"", rating:"4.8", reviews:66,  priority:"High",   status:"Customer",  acctNum:"245",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Great relationship — call us first.",      relScore:"", isStocking:false, inventory:[] , lat:33.214, lng:-96.9982, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:55,  name:"AntiMatter Performance",            type:"Performance",        town:"Aubrey",       address:"2601 Wheeler Ave",         fullAddress:"2601 Wheeler Ave, Aubrey, TX 76227",                phone:"(972) 342-8871", contact:"",              email:"", rating:"5.0", reviews:87,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Performance",                              relScore:"", isStocking:false, inventory:[] , lat:33.1988, lng:-97.021, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:56,  name:"Stett's Diesel Trucks",             type:"Diesel Truck",       town:"Aubrey",       address:"2160 Rockhill Rd",         fullAddress:"2160 Rockhill Rd, Aubrey, TX 76227",                phone:"(972) 423-3310", contact:"",              email:"", rating:"5.0", reviews:45,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Diesel trucks",                            relScore:"", isStocking:false, inventory:[] , lat:33.1875, lng:-97.054, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:57,  name:"428Auto",                           type:"Auto Repair",        town:"Aubrey",       address:"110 N Sherman Dr",         fullAddress:"110 N Sherman Dr, Aubrey, TX 76227",                phone:"469-779-5195",   contact:"",              email:"", rating:"4.1", reviews:14,  priority:"Medium", status:"Customer",  acctNum:"278",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Smaller shop",                             relScore:"", isStocking:false, inventory:[] , lat:33.211, lng:-97.0015, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:58,  name:"DFW Luxury Automotive Group",       type:"Auto Repair",        town:"Aubrey",       address:"1518 Navo Rd Suite B-01",  fullAddress:"1518 Navo Rd, Aubrey, TX 76227",                    phone:"(214) 404-2881", contact:"",              email:"", rating:"4.9", reviews:163, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Luxury automotive",                        relScore:"", isStocking:false, inventory:[] , lat:33.198, lng:-97.035, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:59,  name:"Brad's Automotive (Aubrey)",        type:"Auto Repair",        town:"Aubrey",       address:"210 S Hwy 377",            fullAddress:"210 S Hwy 377, Aubrey, TX 76227",                   phone:"940-365-9006",   contact:"Brad",          email:"", rating:"4.9", reviews:44,  priority:"High",   status:"Customer",  acctNum:"273",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General repair",                           relScore:"", isStocking:false, inventory:[] , lat:33.2075, lng:-96.9978, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:60,  name:"Frank Bartel Transportation",       type:"Trucking",           town:"Aubrey",       address:"7401 US-377",              fullAddress:"7401 US-377, Aubrey, TX 76227",                     phone:"940-440-3230",   contact:"Miguel",        email:"", rating:"4.5", reviews:22,  priority:"High",   status:"Customer",  acctNum:"1635",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Heavy trucking. Stocking account.",        relScore:"", isStocking:true,  inventory:[{id:"fbt-1",partNum:"21348",description:"Oil Filter",parLevel:6,currentStock:0,category:"Oil Filters"},{id:"fbt-2",partNum:"LF-9080",description:"HD Oil Filter",parLevel:4,currentStock:0,category:"Oil Filters"}] , lat:33.225, lng:-96.997, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:61,  name:"Moss Performance",                  type:"ATV Repair",         town:"Aubrey",       address:"2576 FM 455",              fullAddress:"2576 FM 455, Aubrey, TX 76227",                     phone:"702-441-5851",   contact:"",              email:"", rating:"4.4", reviews:55,  priority:"Medium", status:"Customer",  acctNum:"246",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"ATV / powersports",                        relScore:"", isStocking:false, inventory:[] , lat:33.196, lng:-97.005, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:62,  name:"Big Brand Tire & Service (SAV)",    type:"Tire Shop",          town:"Aubrey",       address:"26779 US-380",             fullAddress:"26779 US-380, Aubrey, TX 76227",                    phone:"469-715-0028",   contact:"Danny",         email:"", rating:"4.6", reviews:600, priority:"High",   status:"Customer",  acctNum:"4015",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Stocking: filters & batteries",            relScore:"", isStocking:true,  inventory:[{id:"bb-sav-1",partNum:"21348",description:"Oil Filter",parLevel:12,currentStock:0,category:"Oil Filters"},{id:"bb-sav-2",partNum:"78-8C",description:"Battery Grp 78",parLevel:4,currentStock:0,category:"Batteries"}] , lat:33.1751, lng:-97.0631, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:63,  name:"RTEL Construction",                 type:"Construction",       town:"Aubrey",       address:"8291 FM 2931",             fullAddress:"8291 FM 2931, Aubrey, TX 76227",                    phone:"940-365-0895",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"159",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] , lat:33.199, lng:-97.044, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:64,  name:"BSP Motorsports LLC",               type:"Performance",        town:"Aubrey",       address:"14546 Industrial Park",    fullAddress:"14546 Industrial Park, Aubrey, TX 76227",           phone:"(469) 731-5887", contact:"",              email:"", rating:"4.9", reviews:208, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Performance",                              relScore:"", isStocking:false, inventory:[] , lat:33.182, lng:-97.028, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:70,  name:"Xclusive Truck Kustoms",            type:"Truck Accessories",  town:"Celina",       address:"200 S Louisiana Dr #120",  fullAddress:"200 S Louisiana Dr, Celina, TX 75009",             phone:"(214) 687-2703", contact:"",              email:"", rating:"4.7", reviews:171, priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Truck custom",                             relScore:"", isStocking:false, inventory:[] , lat:33.3148, lng:-96.7826, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:71,  name:"Celina Diesel",                     type:"Diesel Repair",      town:"Celina",       address:"11187 Co Rd 95",           fullAddress:"11187 Co Rd 95, Celina, TX 75009",                  phone:"(469) 502-3550", contact:"",              email:"", rating:"5.0", reviews:22,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Diesel specialist",                        relScore:"", isStocking:false, inventory:[] , lat:33.339, lng:-96.764, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:72,  name:"RX Collision Celina",               type:"Auto Body",          town:"Celina",       address:"112 W Ash St",             fullAddress:"112 W Ash St, Celina, TX 75009",                    phone:"(972) 382-3040", contact:"",              email:"", rating:"4.9", reviews:40,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Collision",                                relScore:"", isStocking:false, inventory:[] , lat:33.3155, lng:-96.782, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:73,  name:"D & V Auto Repair",                 type:"Auto Repair",        town:"Celina",       address:"106 N Louisiana Dr",       fullAddress:"106 N Louisiana Dr, Celina, TX 75009",             phone:"972-382-3601",   contact:"",              email:"", rating:"4.5", reviews:156, priority:"Medium", status:"Customer",  acctNum:"1620",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General",                                  relScore:"", isStocking:false, inventory:[] , lat:33.3142, lng:-96.7822, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:74,  name:"FCS Construction LLC",              type:"Construction Fleet", town:"Celina",       address:"1490 N Louisiana Dr",      fullAddress:"1490 N Louisiana Dr, Celina, TX 75009",            phone:"214-551-2348",   contact:"Sean/Barry",    email:"", rating:"4.6", reviews:8,   priority:"High",   status:"Customer",  acctNum:"2800",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Construction fleet",                       relScore:"", isStocking:false, inventory:[] , lat:33.3168, lng:-96.783, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:75,  name:"Dickerson Construction Co",         type:"Construction Fleet", town:"Celina",       address:"1130 N Louisiana Dr",      fullAddress:"1130 N Louisiana Dr, Celina, TX 75009",            phone:"972-382-2123",   contact:"Devin/Blake",   email:"", rating:"3.3", reviews:6,   priority:"Medium", status:"Customer",  acctNum:"28",    monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Will call if needed.",                      relScore:"", isStocking:false, inventory:[] , lat:33.316, lng:-96.7825, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:76,  name:"1876 Country Club",                 type:"Golf / Fleet",       town:"Celina",       address:"3500 N Legacy Dr",         fullAddress:"3500 N Legacy Dr, Celina, TX 75009",               phone:"214-497-1097",   contact:"",              email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"287",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] , lat:33.345, lng:-96.778, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:80,  name:"Hickman Creations",                 type:"Auto Restoration",   town:"Gunter",       address:"424 W Main St",            fullAddress:"424 W Main St, Gunter, TX 75058",                   phone:"(903) 228-5014", contact:"",              email:"", rating:"4.0", reviews:21,  priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Classic cars",                             relScore:"", isStocking:false, inventory:[] , lat:33.4438, lng:-96.753, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:81,  name:"Rushton Automotive",                type:"Auto Repair",        town:"Gunter",       address:"424 W Main St Suite 6",    fullAddress:"424 W Main St, Gunter, TX 75058",                   phone:"(972) 433-3972", contact:"",              email:"", rating:"5.0", reviews:10,  priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Small repair",                             relScore:"", isStocking:false, inventory:[] , lat:33.444, lng:-96.7532, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:82,  name:"Mario Jr Tire Service",             type:"Tire Shop",          town:"Gunter",       address:"341 Stiff Chapel Rd",      fullAddress:"341 Stiff Chapel Rd, Gunter, TX 75058",             phone:"903-816-1459",   contact:"Mario",         email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"64",    monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] , lat:33.439, lng:-96.741, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:90,  name:"Three Seventy Seven Tires",         type:"Tire & Oil",         town:"Collinsville", address:"719 US-377",               fullAddress:"719 US-377, Collinsville, TX 76233",                phone:"(903) 429-3425", contact:"",              email:"", rating:"4.6", reviews:66,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Tires + oil",                              relScore:"", isStocking:false, inventory:[] , lat:33.556, lng:-97.022, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:91,  name:"Collinsville Tire Shop",            type:"Tire Shop",          town:"Collinsville", address:"9415 US-377",              fullAddress:"9415 US-377, Collinsville, TX 76233",               phone:"(214) 549-7306", contact:"",              email:"", rating:"5.0", reviews:72,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Tire shop",                                relScore:"", isStocking:false, inventory:[] , lat:33.558, lng:-97.0218, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:92,  name:"Brad's Automotive (Collinsville)",  type:"Auto Repair",        town:"Collinsville", address:"2118 Dawkins Rd",          fullAddress:"2118 Dawkins Rd, Collinsville, TX 76233",           phone:"(903) 429-6022", contact:"",              email:"", rating:"4.9", reviews:21,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"General repair",                           relScore:"", isStocking:false, inventory:[] , lat:33.5542, lng:-97.0198, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:93,  name:"Jesse Buttress Sand & Gravel",      type:"Construction",       town:"Collinsville", address:"182 Cobler Rd",            fullAddress:"182 Cobler Rd, Collinsville, TX 76233",             phone:"214-243-7676",   contact:"Jesse",         email:"", rating:"",    reviews:0,   priority:"Medium", status:"Customer",  acctNum:"239",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"",                                         relScore:"", isStocking:false, inventory:[] , lat:33.549, lng:-97.015, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:100, name:"Myrt's Paint & Body",               type:"Auto Body",          town:"Tioga",        address:"211 S Donaton St",         fullAddress:"211 S Donaton St, Tioga, TX 76271",                 phone:"(903) 815-5959", contact:"",              email:"", rating:"5.0", reviews:9,   priority:"Medium", status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Body shop",                                relScore:"", isStocking:false, inventory:[] , lat:33.4709, lng:-96.9218, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:101, name:"USA Trucking Inc",                  type:"Trucking",           town:"Tioga",        address:"616 Bodovsky Rd",          fullAddress:"616 Bodovsky Rd, Tioga, TX 76271",                  phone:"940-437-5222",   contact:"",              email:"", rating:"3.3", reviews:7,   priority:"Medium", status:"Customer",  acctNum:"1280",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Bulk hauling",                             relScore:"", isStocking:false, inventory:[] , lat:33.472, lng:-96.922, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:110, name:"BURNCO Ready-Mix",                  type:"Ready Mix Concrete", town:"Krugerville",  address:"9170 Ike Byrom Rd",        fullAddress:"9170 Ike Byrom Rd, Aubrey, TX 76227",               phone:"469-647-3604",   contact:"Bryant/Roberts",email:"", rating:"4.7", reviews:6,   priority:"High",   status:"Customer",  acctNum:"2560",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Interested in Milwaukee tools.",            relScore:"", isStocking:false, inventory:[] , lat:33.184, lng:-97.067, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:111, name:"Nuts and Volts Automotive",         type:"Auto Repair",        town:"Krugerville",  address:"4900 US-377",              fullAddress:"4900 US-377, Krugerville, TX 76227",                phone:"972-505-6132",   contact:"Tess/Ryan",     email:"", rating:"4.9", reviews:29,  priority:"High",   status:"Customer",  acctNum:"267",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Call us first — excellent relationship.",  relScore:"", isStocking:false, inventory:[] , lat:33.185, lng:-97.066, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:112, name:"META COLLISION",                    type:"Auto Body",          town:"Krugerville",  address:"8171 US-377",              fullAddress:"8171 US-377, Krugerville, TX 76227",                phone:"(214) 783-9466", contact:"",              email:"", rating:"5.0", reviews:50,  priority:"High",   status:"Prospect",  acctNum:"",      monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Collision center",                         relScore:"", isStocking:false, inventory:[] , lat:33.186, lng:-97.0665, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:113, name:"A-Z Bus Sales",                     type:"Fleet / Bus",        town:"Krugerville",  address:"1003 Prosperity Way",      fullAddress:"1003 Prosperity Way, Krugerville, TX 76227",        phone:"214-693-5299",   contact:"Michael/Ashley",email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"238",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"AP dept follow-up. Good relationship.",   relScore:"", isStocking:false, inventory:[] , lat:33.1845, lng:-97.0655, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:120, name:"Abilene Diesel Performance DFW",    type:"Diesel Repair",      town:"Valley View",  address:"6444 E Lone Oak Rd",       fullAddress:"6444 E Lone Oak Rd, Valley View, TX 76272",         phone:"940-580-0646",   contact:"Eric/Courtney", email:"", rating:"5.0", reviews:44,  priority:"High",   status:"Customer",  acctNum:"316",   monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Diesel performance",                       relScore:"", isStocking:false, inventory:[] , lat:33.532, lng:-97.156, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
+  { id:130, name:"Big Brand Tire & Service (Sherman)",type:"Tire Shop",          town:"Sherman",      address:"4001 Texoma Pkwy",         fullAddress:"4001 Texoma Pkwy, Sherman, TX 75090",               phone:"903-868-8072",   contact:"Mark",          email:"", rating:"",    reviews:0,   priority:"High",   status:"Customer",  acctNum:"4016",  monthlySpend:"", supplier:"", lastVisit:"", lastCall:"", nextFollowUp:"", notes:"Stocking: filters & batteries",            relScore:"", isStocking:true,  inventory:[{id:"bb-sh-1",partNum:"21348",description:"Oil Filter",parLevel:12,currentStock:0,category:"Oil Filters"},{id:"bb-sh-2",partNum:"78-8C",description:"Battery Grp 78",parLevel:4,currentStock:0,category:"Batteries"}] , lat:33.6289, lng:-96.6088, competitor:"", callLog:[], spendHistory:[], repName:"", lostReason:""},
 ];
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const STATUSES   = ["","Customer","Active","Prospect","Warm Lead","Cold","Not Interested"];
+const COMPETITORS = ["","O'Reilly","AutoZone","Parts Plus","Carquest","NAPA","Worldpac","Dealership","Other"];
+const REPS = ["","Chris","Outside Rep","Store Staff"];
+const LOST_REASONS = ["","Price","Relationship","Product Availability","Went to Competitor","Out of Business","Other"];
+
 const PRIORITIES = ["High","Medium","Low"];
 const ALL_TOWNS  = ["All Towns",...Array.from(new Set(INITIAL_CUSTOMERS.map(c=>c.town))).sort()];
 
@@ -145,41 +169,113 @@ function NapaLogo(){
 }
 
 // ─── INVENTORY PANEL ──────────────────────────────────────────────────────────
+const INV_CATEGORIES = ["Air Filters","Batteries","Cabin Air Filters","Chemicals","Consumables","Fuel Filters","Oil Filters","Other","Wiper Blades"];
+
 function InvPanel({customer,onUpdate}){
   const [items,setItems]=useState(customer.inventory||[]);
-  const [np,setNp]=useState({partNum:"",description:"",parLevel:"",currentStock:""});
+  const [np,setNp]=useState({partNum:"",description:"",parLevel:"",currentStock:"",category:"Oil Filters"});
+  const [editingId,setEditingId]=useState(null);
+  const [editBuf,setEditBuf]=useState({partNum:"",description:"",parLevel:"",category:""});
+  const [collapsed,setCollapsed]=useState(()=>INV_CATEGORIES.reduce((a,c)=>({...a,[c]:true}),{}));
+
   const save=upd=>{setItems(upd);onUpdate({...customer,inventory:upd});};
-  const add=()=>{if(!np.description)return;save([...items,{id:`inv-${Date.now()}`,partNum:np.partNum,description:np.description,parLevel:parseInt(np.parLevel)||0,currentStock:parseInt(np.currentStock)||0}]);setNp({partNum:"",description:"",parLevel:"",currentStock:""});};
+  const add=()=>{
+    if(!np.description)return;
+    save([...items,{id:`inv-${Date.now()}`,partNum:np.partNum,description:np.description,parLevel:parseInt(np.parLevel)||0,currentStock:parseInt(np.currentStock)||0,category:np.category||"Other"}]);
+    setNp(p=>({...p,partNum:"",description:"",parLevel:"",currentStock:""}));
+  };
   const updateStock=(id,val)=>save(items.map(i=>i.id===id?{...i,currentStock:parseInt(val)||0}:i));
   const remove=id=>save(items.filter(i=>i.id!==id));
-  const reorders=items.filter(i=>i.currentStock<i.parLevel);
+  const saveEdit=id=>{
+    save(items.map(i=>i.id===id?{...i,partNum:editBuf.partNum,description:editBuf.description,parLevel:parseInt(editBuf.parLevel)||i.parLevel,category:editBuf.category||i.category}:i));
+    setEditingId(null);
+  };
+  const toggleCollapse=cat=>setCollapsed(c=>({...c,[cat]:!c[cat]}));
+
+  // Group items by category
+  const grouped = INV_CATEGORIES.reduce((acc,cat)=>{
+    acc[cat]=items.filter(i=>(i.category||"Other")===cat).sort((a,b)=>a.description.localeCompare(b.description)||((a.partNum||"").localeCompare(b.partNum||"")));
+    return acc;
+  },{});
+
+  const totalItems=items.length;
+  const orderItems=items.filter(i=>i.currentStock<i.parLevel);
+
   return(
     <div style={{marginTop:14,padding:14,background:"#f8fafc",borderRadius:10,border:"1.5px solid #e2e8f0"}}>
-      <div style={{fontWeight:800,fontSize:13,color:"#1e293b",marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        📦 Inventory
-        {reorders.length>0&&<span style={{background:"#fee2e2",color:"#991b1b",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:700}}>⚠️ {reorders.length} to reorder</span>}
+      <div style={{fontWeight:800,fontSize:13,color:"#1e293b",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        📦 Inventory ({totalItems} items)
+        {orderItems.length>0&&<span style={{background:"#fee2e2",color:"#991b1b",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:700}}>⚠️ {orderItems.length} need reorder</span>}
       </div>
-      {items.length>0&&(<table style={{width:"100%",borderCollapse:"collapse",marginBottom:10,fontSize:12}}>
-        <thead><tr style={{background:"#e2e8f0"}}>{["Part #","Description","Par","Stock","Status",""].map(h=><th key={h} style={{padding:"5px 7px",textAlign:"left",fontWeight:700,color:"#374151"}}>{h}</th>)}</tr></thead>
-        <tbody>{items.map(item=>{const low=item.currentStock<item.parLevel;return<tr key={item.id} style={{background:low?"#fff7ed":"#fff",borderBottom:"1px solid #f1f5f9"}}>
-          <td style={{padding:"5px 7px",color:"#64748b"}}>{item.partNum||"—"}</td>
-          <td style={{padding:"5px 7px",fontWeight:600,color:"#1f2937"}}>{item.description}</td>
-          <td style={{padding:"5px 7px",color:"#64748b"}}>{item.parLevel}</td>
-          <td style={{padding:"5px 7px"}}><input type="number" value={item.currentStock} onChange={e=>updateStock(item.id,e.target.value)} style={{width:52,border:"1.5px solid #d1d5db",borderRadius:6,padding:"2px 5px",fontSize:12,textAlign:"center"}}/></td>
-          <td style={{padding:"5px 7px"}}>{low?<span style={{color:"#dc2626",fontWeight:700,fontSize:11}}>🔴 REORDER</span>:<span style={{color:"#16a34a",fontWeight:700,fontSize:11}}>✅ OK</span>}</td>
-          <td style={{padding:"5px 7px"}}><button onClick={()=>remove(item.id)} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14,fontWeight:700}}>×</button></td>
-        </tr>;})}</tbody>
-      </table>)}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 2fr 72px 72px auto",gap:6,alignItems:"end"}}>
-        <div><label style={{...lbl,fontSize:10}}>Part #</label><input value={np.partNum} onChange={e=>setNp(p=>({...p,partNum:e.target.value}))} placeholder="21348" style={{...inp,fontSize:12}}/></div>
-        <div><label style={{...lbl,fontSize:10}}>Description</label><input value={np.description} onChange={e=>setNp(p=>({...p,description:e.target.value}))} placeholder="Oil Filter" style={{...inp,fontSize:12}}/></div>
-        <div><label style={{...lbl,fontSize:10}}>Par</label><input type="number" value={np.parLevel} onChange={e=>setNp(p=>({...p,parLevel:e.target.value}))} placeholder="12" style={{...inp,fontSize:12}}/></div>
-        <div><label style={{...lbl,fontSize:10}}>Stock</label><input type="number" value={np.currentStock} onChange={e=>setNp(p=>({...p,currentStock:e.target.value}))} placeholder="0" style={{...inp,fontSize:12}}/></div>
-        <button onClick={add} style={{...btn("#1e293b"),padding:"8px 12px",fontSize:12,marginTop:16}}>+ Add</button>
+
+      {/* Category sections */}
+      {INV_CATEGORIES.map(cat=>{
+        const catItems=grouped[cat];
+        if(catItems.length===0)return null;
+        const catOrderItems=catItems.filter(i=>i.currentStock<i.parLevel);
+        const isOpen=!collapsed[cat];
+        return(
+          <div key={cat} style={{marginBottom:10,border:"1.5px solid #e2e8f0",borderRadius:8,overflow:"hidden"}}>
+            {/* Category header - clickable to collapse */}
+            <div onClick={()=>toggleCollapse(cat)} style={{background:"#f1f5f9",padding:"7px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
+              <div style={{fontWeight:700,fontSize:12,color:"#1e293b"}}>{cat} <span style={{color:"#64748b",fontWeight:500}}>({catItems.length})</span></div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                {catOrderItems.length>0&&<span style={{background:"#fee2e2",color:"#991b1b",padding:"1px 7px",borderRadius:20,fontSize:10,fontWeight:700}}>ORDER {catOrderItems.reduce((s,i)=>s+(i.parLevel-i.currentStock),0)}</span>}
+                <span style={{color:"#64748b",fontSize:12}}>{isOpen?"▼":"▶"}</span>
+              </div>
+            </div>
+            {/* Category items */}
+            {isOpen&&(
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",minWidth:480,borderCollapse:"collapse",fontSize:12}}>
+                  <thead><tr style={{background:"#e8ecf0"}}>{["Part #","Description","Par","Stock","Order","Actions"].map(h=><th key={h} style={{padding:"5px 8px",textAlign:"left",fontWeight:700,color:"#374151",fontSize:11}}>{h}</th>)}</tr></thead>
+                  <tbody>{catItems.map(item=>{
+                    const low=item.currentStock<item.parLevel;
+                    const orderQty=low?item.parLevel-item.currentStock:0;
+                    const isEditing=editingId===item.id;
+                    return<tr key={item.id} style={{background:isEditing?"#f0f9ff":low?"#fff7ed":"#fff",borderBottom:"1px solid #f1f5f9"}}>
+                      <td style={{padding:"5px 7px"}}>{isEditing?<input value={editBuf.partNum} onChange={e=>setEditBuf(b=>({...b,partNum:e.target.value}))} style={{width:70,border:"1.5px solid #38bdf8",borderRadius:5,padding:"2px 5px",fontSize:11}}/>:<span style={{color:"#64748b"}}>{item.partNum||"—"}</span>}</td>
+                      <td style={{padding:"5px 7px"}}>{isEditing?<input value={editBuf.description} onChange={e=>setEditBuf(b=>({...b,description:e.target.value}))} style={{width:110,border:"1.5px solid #38bdf8",borderRadius:5,padding:"2px 5px",fontSize:11}}/>:<span style={{fontWeight:600,color:"#1f2937"}}>{item.description}</span>}</td>
+                      <td style={{padding:"5px 7px",textAlign:"center"}}>{isEditing?<input type="number" value={editBuf.parLevel} min="1" onChange={e=>setEditBuf(b=>({...b,parLevel:e.target.value}))} style={{width:44,border:"1.5px solid #38bdf8",borderRadius:5,padding:"2px 4px",fontSize:11,textAlign:"center"}}/>:<span style={{color:"#64748b"}}>{item.parLevel}</span>}</td>
+                      <td style={{padding:"5px 7px"}}>{!isEditing&&<input type="number" value={item.currentStock} min="0" onChange={e=>updateStock(item.id,e.target.value)} style={{width:52,border:"1.5px solid #d1d5db",borderRadius:6,padding:"2px 5px",fontSize:12,textAlign:"center"}}/>}{isEditing&&<span style={{color:"#64748b",fontSize:12,padding:"0 6px"}}>{item.currentStock}</span>}</td>
+                      <td style={{padding:"5px 7px",textAlign:"center",fontWeight:800,fontSize:13,color:low?"#cc0000":"#16a34a"}}>{low?orderQty:"—"}</td>
+                      <td style={{padding:"5px 7px",whiteSpace:"nowrap"}}>
+                        {isEditing
+                          ?<><button onClick={()=>saveEdit(item.id)} style={{background:"none",border:"none",color:"#16a34a",cursor:"pointer",fontSize:13,fontWeight:700,marginRight:4}}>✓</button><button onClick={()=>setEditingId(null)} style={{background:"none",border:"none",color:"#64748b",cursor:"pointer",fontSize:13}}>✕</button></>
+                          :<><button onClick={()=>{setEditingId(item.id);setEditBuf({partNum:item.partNum||"",description:item.description||"",parLevel:item.parLevel,category:item.category||cat});}} style={{background:"none",border:"none",color:"#2563eb",cursor:"pointer",fontSize:12,marginRight:2}}>✏️</button><button onClick={()=>remove(item.id)} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14,fontWeight:700}}>×</button></>}
+                      </td>
+                    </tr>;
+                  })}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {items.length===0&&<div style={{color:"#94a3b8",fontSize:13,textAlign:"center",padding:"12px 0"}}>No inventory items yet — add parts below</div>}
+
+      {/* Add new item */}
+      <div style={{marginTop:12,padding:"10px 12px",background:"#fff",borderRadius:8,border:"1.5px solid #e2e8f0"}}>
+        <div style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Add New Item</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:6,alignItems:"end"}}>
+          <div><label style={{...lbl,fontSize:10}}>Category</label>
+            <select value={np.category} onChange={e=>setNp(p=>({...p,category:e.target.value}))} style={{...inp,fontSize:11}}>
+              {INV_CATEGORIES.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div><label style={{...lbl,fontSize:10}}>Part #</label><input value={np.partNum} onChange={e=>setNp(p=>({...p,partNum:e.target.value}))} placeholder="21348" style={{...inp,fontSize:12}}/></div>
+          <div><label style={{...lbl,fontSize:10}}>Description</label><input value={np.description} onChange={e=>setNp(p=>({...p,description:e.target.value}))} placeholder="Oil Filter" style={{...inp,fontSize:12}}/></div>
+          <div><label style={{...lbl,fontSize:10}}>Par</label><input type="number" value={np.parLevel} onChange={e=>setNp(p=>({...p,parLevel:e.target.value}))} placeholder="12" style={{...inp,fontSize:12}}/></div>
+          <div><label style={{...lbl,fontSize:10}}>Stock</label><input type="number" value={np.currentStock} onChange={e=>setNp(p=>({...p,currentStock:e.target.value}))} placeholder="0" style={{...inp,fontSize:12}}/></div>
+          <button onClick={add} style={{...btn("#1e293b"),padding:"8px 12px",fontSize:12,marginTop:16}}>+ Add</button>
+        </div>
       </div>
+      <ReorderHistoryPanel customer={customer} onUpdate={onUpdate}/>
     </div>
   );
 }
+
 
 // ─── INVENTORY PRINT / PDF ────────────────────────────────────────────────────
 function InvPrintModal({customers,onClose}){
@@ -286,13 +382,7 @@ function InvDash({customers,onUpdate,onClose,onPrint}){
           </div>
         </div>
         <div style={{padding:24}}>
-          {alerts.length>0&&<div style={{background:"#fff7ed",border:"1.5px solid #fed7aa",borderRadius:10,padding:14,marginBottom:20}}>
-            <div style={{fontWeight:800,fontSize:13,color:"#c2410c",marginBottom:10}}>⚠️ Reorder Alerts</div>
-            {alerts.map((item,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #fed7aa"}}>
-              <div><span style={{fontWeight:700,fontSize:13,color:"#1e293b"}}>{item.description}</span>{item.partNum&&<span style={{color:"#64748b",fontSize:12}}> · #{item.partNum}</span>}</div>
-              <div style={{fontSize:12,color:"#64748b"}}>{item.cName} · Stock: <b style={{color:"#dc2626"}}>{item.currentStock}</b> / Par: {item.parLevel}</div>
-            </div>)}
-          </div>}
+
           {accts.map(c=>(
             <div key={c.id} style={{marginBottom:20,padding:16,border:"1.5px solid #e2e8f0",borderRadius:10}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -328,7 +418,7 @@ function Dashboard({customers,onClose,onSelectCustomer}){
         </div>
         <div style={{padding:24}}>
           {/* KPI row */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:12,marginBottom:24}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:12,marginBottom:24}}>
             {[
               {label:"Total Accounts",value:customers.length,icon:"🏢",color:"#1e293b"},
               {label:"Active Customers",value:activeCustomers.length,icon:"✅",color:"#16a34a"},
@@ -414,6 +504,41 @@ function Dashboard({customers,onClose,onSelectCustomer}){
               })}
             </div>
           </div>
+
+          {/* Competitor breakdown */}
+          <div style={{marginTop:20,border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
+            <div style={{background:"#f8fafc",padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0"}}>⚡ Competitor Breakdown</div>
+            <div style={{padding:16,display:"flex",gap:10,flexWrap:"wrap"}}>
+              {COMPETITORS.filter(Boolean).map(comp=>{
+                const count=customers.filter(c=>c.competitor===comp).length;
+                if(!count)return null;
+                return<div key={comp} style={{background:"#fff7ed",border:"1.5px solid #fed7aa",borderRadius:10,padding:"10px 14px",textAlign:"center",minWidth:100}}>
+                  <div style={{fontWeight:900,fontSize:20,color:"#c2410c"}}>{count}</div>
+                  <div style={{fontSize:11,color:"#c2410c",fontWeight:700,marginTop:2}}>{comp}</div>
+                </div>;
+              })}
+              {!customers.some(c=>c.competitor)&&<div style={{color:"#94a3b8",fontSize:13,padding:"8px 0"}}>No competitor data yet — add it in customer profiles</div>}
+            </div>
+          </div>
+
+          {/* Rep assignment */}
+          {REPS.filter(Boolean).some(r=>customers.some(c=>c.repName===r))&&(
+            <div style={{marginTop:20,border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
+              <div style={{background:"#f8fafc",padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0"}}>👤 Accounts by Rep</div>
+              <div style={{padding:16,display:"flex",gap:10,flexWrap:"wrap"}}>
+                {REPS.filter(Boolean).map(rep=>{
+                  const accs=customers.filter(c=>c.repName===rep);
+                  if(!accs.length)return null;
+                  const spend=accs.reduce((s,c)=>s+(parseFloat(c.monthlySpend)||0),0);
+                  return<div key={rep} style={{background:"#f0f9ff",border:"1.5px solid #bae6fd",borderRadius:10,padding:"12px 16px",minWidth:140}}>
+                    <div style={{fontWeight:800,fontSize:14,color:"#0c4a6e"}}>{rep}</div>
+                    <div style={{fontSize:12,color:"#0369a1",marginTop:2}}>{accs.length} accounts</div>
+                    {spend>0&&<div style={{fontSize:12,color:"#16a34a",fontWeight:600}}>${spend.toLocaleString()}/mo</div>}
+                  </div>;
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -483,9 +608,9 @@ function WeeklyCallList({customers,onClose,onSelectCustomer}){
 
 // ─── ADD CUSTOMER MODAL ───────────────────────────────────────────────────────
 function AddModal({onClose,onAdd}){
-  const [f,setF]=useState({name:"",type:"Auto Repair",town:"",address:"",phone:"",contact:"",email:"",priority:"High",status:"Prospect",acctNum:"",monthlySpend:"",notes:""});
+  const [f,setF]=useState({name:"",type:"Auto Repair",town:"",address:"",phone:"",contact:"",email:"",priority:"High",status:"Prospect",acctNum:"",monthlySpend:"",notes:"",competitor:"",repName:"",lostReason:""});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
-  const save=()=>{if(!f.name.trim())return;const full=f.address&&f.town?`${f.address}, ${f.town}, TX`:f.address;onAdd({...f,id:Date.now(),fullAddress:full,rating:"",reviews:0,supplier:"",lastVisit:"",lastCall:"",nextFollowUp:"",relScore:"",isStocking:false,inventory:[]});onClose();};
+  const save=()=>{if(!f.name.trim())return;const full=f.address&&f.town?`${f.address}, ${f.town}, TX`:f.address;onAdd({...f,id:Date.now(),fullAddress:full,rating:"",reviews:0,supplier:"",lastVisit:"",lastCall:"",nextFollowUp:"",relScore:"",isStocking:false,inventory:[],callLog:[],spendHistory:[],reorderHistory:[],competitor:"",repName:"",lostReason:""});onClose();};
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.3)"}}>
@@ -493,7 +618,7 @@ function AddModal({onClose,onAdd}){
           <div style={{color:"#fff",fontWeight:800,fontSize:16}}>➕ Add New Customer</div>
           <button onClick={onClose} style={{color:"#94a3b8",background:"none",border:"none",fontSize:22,cursor:"pointer"}}>✕</button>
         </div>
-        <div style={{padding:24,display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <div style={{padding:24,display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14}}>
           <div style={{gridColumn:"1/-1"}}><Fld label="Business Name *"><input value={f.name} onChange={e=>set("name",e.target.value)} style={inp} placeholder="Business name"/></Fld></div>
           <Fld label="Type"><input value={f.type} onChange={e=>set("type",e.target.value)} style={inp}/></Fld>
           <Fld label="Town"><input value={f.town} onChange={e=>set("town",e.target.value)} style={inp} placeholder="Pilot Point"/></Fld>
@@ -502,15 +627,150 @@ function AddModal({onClose,onAdd}){
           <Fld label="Contact Person"><input value={f.contact} onChange={e=>set("contact",e.target.value)} style={inp}/></Fld>
           <Fld label="Email"><input value={f.email} onChange={e=>set("email",e.target.value)} style={inp} type="email"/></Fld>
           <Fld label="Acct # (POS)"><input value={f.acctNum} onChange={e=>set("acctNum",e.target.value)} style={inp}/></Fld>
-          <Fld label="Est. Monthly Spend ($)"><input value={f.monthlySpend} onChange={e=>set("monthlySpend",e.target.value)} style={inp} type="number" placeholder="0"/></Fld>
+          <Fld label="Est. Monthly Spend">
+          <select value={f.monthlySpend||""} onChange={e=>set("monthlySpend",e.target.value)} style={{...inp,color:SPEND_OPTIONS.find(o=>o.value===(f.monthlySpend||""))?.color||"#6b7280",fontWeight:600}}>
+            {SPEND_OPTIONS.map(o=><option key={o.value} value={o.value} style={{color:o.color}}>{o.label}</option>)}
+          </select>
+        </Fld>
           <Fld label="Priority"><select value={f.priority} onChange={e=>set("priority",e.target.value)} style={{...inp}}>{PRIORITIES.map(p=><option key={p}>{p}</option>)}</select></Fld>
           <Fld label="Status"><select value={f.status} onChange={e=>set("status",e.target.value)} style={{...inp}}>{STATUSES.filter(Boolean).map(s=><option key={s}>{s}</option>)}</select></Fld>
+          <Fld label="🏪 Competitor"><select value={f.competitor||""} onChange={e=>set("competitor",e.target.value)} style={{...inp}}>{COMPETITORS.map(c=><option key={c} value={c}>{c||"— Select —"}</option>)}</select></Fld>
+          <Fld label="👤 Sales Rep"><select value={f.repName||""} onChange={e=>set("repName",e.target.value)} style={{...inp}}>{REPS.map(r=><option key={r} value={r}>{r||"— Assign —"}</option>)}</select></Fld>
           <div style={{gridColumn:"1/-1"}}><Fld label="Notes"><textarea value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2} style={{...inp,resize:"vertical"}}/></Fld></div>
           <div style={{gridColumn:"1/-1",display:"flex",gap:10,justifyContent:"flex-end"}}>
             <button onClick={onClose} style={{...btn("#f1f5f9","#374151"),border:"1.5px solid #d1d5db"}}>Cancel</button>
             <button onClick={save} style={btn("#1e293b")}>Add Customer</button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ─── CALL LOG PANEL ──────────────────────────────────────────────────────────
+function CallLogPanel({f,set}){
+  const [newEntry,setNewEntry]=useState("");
+  const [newDate,setNewDate]=useState(new Date().toISOString().split("T")[0]);
+  const logs=(f.callLog||[]).slice().sort((a,b)=>b.date<a.date?-1:1);
+  const addLog=()=>{
+    if(!newEntry.trim())return;
+    const entry={id:Date.now(),date:newDate,note:newEntry.trim(),rep:f.repName||""};
+    set("callLog",[...(f.callLog||[]),entry]);
+    setNewEntry("");
+    setNewDate(new Date().toISOString().split("T")[0]);
+  };
+  const removeLog=id=>set("callLog",(f.callLog||[]).filter(l=>l.id!==id));
+  return(
+    <div style={{marginBottom:14,padding:14,background:"#f8fafc",borderRadius:10,border:"1.5px solid #e2e8f0"}}>
+      <div style={{fontWeight:700,fontSize:13,color:"#1e293b",marginBottom:10}}>📞 Call Log <span style={{color:"#94a3b8",fontWeight:500,fontSize:12}}>({logs.length} entries)</span></div>
+      {/* Add entry */}
+      <div style={{display:"grid",gridTemplateColumns:"120px 1fr auto",gap:6,marginBottom:10,alignItems:"end"}}>
+        <div>
+          <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:3}}>Date</label>
+          <input type="date" value={newDate} onChange={e=>setNewDate(e.target.value)} style={{...inp,fontSize:12}}/>
+        </div>
+        <div>
+          <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:3}}>Notes</label>
+          <input value={newEntry} onChange={e=>setNewEntry(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addLog()} placeholder="What was discussed..." style={{...inp,fontSize:12}}/>
+        </div>
+        <button onClick={addLog} style={{padding:"8px 12px",background:"#1e293b",border:"none",borderRadius:8,color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer",marginTop:16}}>+ Log</button>
+      </div>
+      {/* Log entries */}
+      {logs.length===0&&<div style={{color:"#94a3b8",fontSize:12,textAlign:"center",padding:"8px 0"}}>No calls logged yet</div>}
+      <div style={{maxHeight:200,overflowY:"auto"}}>
+        {logs.map(log=>(
+          <div key={log.id} style={{padding:"8px 10px",background:"#fff",borderRadius:8,marginBottom:6,border:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:2}}>{new Date(log.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}{log.rep?` · ${log.rep}`:""}</div>
+              <div style={{fontSize:13,color:"#1e293b",lineHeight:1.4}}>{log.note}</div>
+            </div>
+            <button onClick={()=>removeLog(log.id)} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:16,fontWeight:700,flexShrink:0,padding:0}}>×</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── SPEND HISTORY PANEL ─────────────────────────────────────────────────────
+function SpendHistoryPanel({f,set}){
+  const [newMonth,setNewMonth]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;});
+  const [newAmt,setNewAmt]=useState("");
+  const history=(f.spendHistory||[]).slice().sort((a,b)=>b.month<a.month?-1:1).slice(0,12);
+  const addEntry=()=>{
+    if(!newAmt||isNaN(parseFloat(newAmt)))return;
+    const existing=(f.spendHistory||[]).filter(e=>e.month!==newMonth);
+    set("spendHistory",[...existing,{month:newMonth,amount:parseFloat(newAmt)}]);
+    setNewAmt("");
+  };
+  const maxAmt=Math.max(...history.map(e=>e.amount),1);
+  return(
+    <div style={{marginBottom:14,padding:14,background:"#f8fafc",borderRadius:10,border:"1.5px solid #e2e8f0"}}>
+      <div style={{fontWeight:700,fontSize:13,color:"#1e293b",marginBottom:10}}>📈 Monthly Spend History</div>
+      <div style={{display:"grid",gridTemplateColumns:"140px 1fr auto",gap:6,marginBottom:10,alignItems:"end"}}>
+        <div>
+          <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:3}}>Month</label>
+          <input type="month" value={newMonth} onChange={e=>setNewMonth(e.target.value)} style={{...inp,fontSize:12}}/>
+        </div>
+        <div>
+          <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:3}}>Amount ($)</label>
+          <input type="number" value={newAmt} onChange={e=>setNewAmt(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addEntry()} placeholder="0" style={{...inp,fontSize:12}}/>
+        </div>
+        <button onClick={addEntry} style={{padding:"8px 12px",background:"#1e293b",border:"none",borderRadius:8,color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer",marginTop:16}}>+ Add</button>
+      </div>
+      {history.length===0&&<div style={{color:"#94a3b8",fontSize:12,textAlign:"center",padding:"8px 0"}}>No spend history yet</div>}
+      {history.length>0&&(
+        <div>
+          {history.map(e=>(
+            <div key={e.month} style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+              <div style={{fontSize:11,color:"#64748b",minWidth:55,fontWeight:600}}>{e.month.replace("-","/")}</div>
+              <div style={{flex:1,background:"#e2e8f0",borderRadius:4,height:14,overflow:"hidden"}}>
+                <div style={{background:"#0891b2",height:"100%",width:`${Math.round((e.amount/maxAmt)*100)}%`,borderRadius:4,transition:"width 0.3s"}}/>
+              </div>
+              <div style={{fontSize:12,fontWeight:700,color:"#0891b2",minWidth:55,textAlign:"right"}}>${e.amount.toLocaleString()}</div>
+              <button onClick={()=>set("spendHistory",(f.spendHistory||[]).filter(h=>h.month!==e.month))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14,fontWeight:700,padding:0}}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── REORDER HISTORY PANEL ────────────────────────────────────────────────────
+function ReorderHistoryPanel({customer,onUpdate}){
+  const [date,setDate]=useState(new Date().toISOString().split("T")[0]);
+  const [items,setItems]=useState("");
+  const [qty,setQty]=useState("");
+  const history=(customer.reorderHistory||[]).slice().sort((a,b)=>b.date<a.date?-1:1);
+  const addReorder=()=>{
+    if(!items.trim())return;
+    const entry={id:Date.now(),date,items:items.trim(),qty:qty||""};
+    onUpdate({...customer,reorderHistory:[...(customer.reorderHistory||[]),entry]});
+    setItems(""); setQty("");
+  };
+  const removeReorder=id=>onUpdate({...customer,reorderHistory:(customer.reorderHistory||[]).filter(r=>r.id!==id)});
+  return(
+    <div style={{marginTop:14,padding:14,background:"#f0fdf4",borderRadius:10,border:"1.5px solid #bbf7d0"}}>
+      <div style={{fontWeight:700,fontSize:13,color:"#1e293b",marginBottom:10}}>📋 Reorder History</div>
+      <div style={{display:"grid",gridTemplateColumns:"110px 1fr 80px auto",gap:6,marginBottom:10,alignItems:"end"}}>
+        <div><label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:3}}>Date</label><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{...inp,fontSize:12}}/></div>
+        <div><label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:3}}>Items Restocked</label><input value={items} onChange={e=>setItems(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addReorder()} placeholder="21348 Oil Filter, 78-8C Battery" style={{...inp,fontSize:12}}/></div>
+        <div><label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:3}}>Qty</label><input value={qty} onChange={e=>setQty(e.target.value)} placeholder="12" style={{...inp,fontSize:12}}/></div>
+        <button onClick={addReorder} style={{padding:"8px 10px",background:"#16a34a",border:"none",borderRadius:8,color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer",marginTop:16}}>+ Log</button>
+      </div>
+      {history.length===0&&<div style={{color:"#94a3b8",fontSize:12,textAlign:"center",padding:"6px 0"}}>No reorder history yet</div>}
+      <div style={{maxHeight:160,overflowY:"auto"}}>
+        {history.map(r=>(
+          <div key={r.id} style={{padding:"7px 10px",background:"#fff",borderRadius:8,marginBottom:5,border:"1px solid #d1fae5",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div>
+              <div style={{fontSize:11,color:"#16a34a",fontWeight:600,marginBottom:1}}>{new Date(r.date+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}{r.qty?` · Qty: ${r.qty}`:""}</div>
+              <div style={{fontSize:12,color:"#1e293b"}}>{r.items}</div>
+            </div>
+            <button onClick={()=>removeReorder(r.id)} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14,fontWeight:700,padding:0}}>×</button>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -541,7 +801,7 @@ function DetailModal({customer,onClose,onSave,onDelete}){
           {/* All fields editable — name, address, phone, acct# included */}
           <div style={{marginBottom:16,padding:14,background:"#f8fafc",borderRadius:10,border:"1.5px solid #e2e8f0"}}>
             <div style={{fontWeight:700,fontSize:12,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10}}>Core Info — Tap any field to edit</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12}}>
               <div style={{gridColumn:"1/-1"}}><Fld label="Business Name"><input value={f.name||""} onChange={e=>set("name",e.target.value)} style={inp}/></Fld></div>
               <Fld label="Address"><input value={f.address||""} onChange={e=>set("address",e.target.value)} style={inp}/></Fld>
               <Fld label="Town"><input value={f.town||""} onChange={e=>set("town",e.target.value)} style={inp}/></Fld>
@@ -551,19 +811,56 @@ function DetailModal({customer,onClose,onSave,onDelete}){
             {f.fullAddress&&<div style={{marginTop:10}}><AddrLink addr={f.address&&f.town?`${f.address}, ${f.town}, TX`:f.fullAddress}/></div>}
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:14}}>
             <Fld label="Contact Person"><input value={f.contact||""} onChange={e=>set("contact",e.target.value)} style={inp}/></Fld>
             <Fld label="Email"><input value={f.email||""} onChange={e=>set("email",e.target.value)} style={inp} type="email"/></Fld>
-            <Fld label="Current Supplier"><input value={f.supplier||""} onChange={e=>set("supplier",e.target.value)} style={inp}/></Fld>
-            <Fld label="Est. Monthly Spend ($)"><input value={f.monthlySpend||""} onChange={e=>set("monthlySpend",e.target.value)} style={inp} type="number" placeholder="0"/></Fld>
-            <Fld label="Last Visit"><input value={f.lastVisit||""} onChange={e=>set("lastVisit",e.target.value)} style={inp} type="date"/></Fld>
-            <Fld label="Last Call"><input value={f.lastCall||""} onChange={e=>set("lastCall",e.target.value)} style={inp} type="date"/></Fld>
+            <Fld label="Current Supplier">
+              <select value={f.supplier||""} onChange={e=>set("supplier",e.target.value)} style={{...inp}}>
+                {["","NAPA PP","O'Reilly","AutoZone","Parts Plus","Carquest","NAPA","Worldpac","Dealership","Other"].map(s=><option key={s} value={s}>{s||"— Select —"}</option>)}
+              </select>
+            </Fld>
+            <Fld label="Est. Monthly Spend">
+              <select value={f.monthlySpend||""} onChange={e=>set("monthlySpend",e.target.value)} style={{...inp,color:SPEND_OPTIONS.find(o=>o.value===(f.monthlySpend||""))?.color||"#6b7280",fontWeight:600}}>
+                {SPEND_OPTIONS.map(o=><option key={o.value} value={o.value} style={{color:o.color,fontWeight:600}}>{o.label}</option>)}
+              </select>
+            </Fld>
+            <Fld label="Last Visit"><input value={f.lastVisit||""} onChange={e=>{set("lastVisit",e.target.value);if(e.target.value){const d=new Date(e.target.value+"T12:00:00");d.setDate(d.getDate()+14);set("nextFollowUp",d.toISOString().split("T")[0]);}}} style={inp} type="date"/></Fld>
+            <Fld label="Last Call"><input value={f.lastCall||""} onChange={e=>{set("lastCall",e.target.value);if(e.target.value){const d=new Date(e.target.value+"T12:00:00");d.setDate(d.getDate()+14);set("nextFollowUp",d.toISOString().split("T")[0]);}}} style={inp} type="date"/></Fld>
             <Fld label="Next Follow-Up"><input value={f.nextFollowUp||""} onChange={e=>set("nextFollowUp",e.target.value)} style={inp} type="date"/></Fld>
             <Fld label="Status"><select value={f.status||""} onChange={e=>set("status",e.target.value)} style={{...inp}}>{STATUSES.map(s=><option key={s} value={s}>{s||"— Select —"}</option>)}</select></Fld>
             <Fld label="Priority"><select value={f.priority} onChange={e=>set("priority",e.target.value)} style={{...inp}}>{PRIORITIES.map(p=><option key={p}>{p}</option>)}</select></Fld>
             <Fld label="Relationship Score (1–10)"><input value={f.relScore||""} onChange={e=>set("relScore",e.target.value)} style={inp} type="number" min="1" max="10" placeholder="1–10"/></Fld>
           </div>
           <div style={{marginBottom:14}}><Fld label="📝 Notes"><textarea value={f.notes||""} onChange={e=>set("notes",e.target.value)} rows={3} style={{...inp,resize:"vertical"}}/></Fld></div>
+
+          {/* New fields */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:14}}>
+            <Fld label="🏪 Competitor (Current Supplier)">
+              <select value={f.competitor||""} onChange={e=>set("competitor",e.target.value)} style={{...inp}}>
+                {COMPETITORS.map(c=><option key={c} value={c}>{c||"— Select —"}</option>)}
+              </select>
+            </Fld>
+            <Fld label="👤 Sales Rep">
+              <select value={f.repName||""} onChange={e=>set("repName",e.target.value)} style={{...inp}}>
+                {REPS.map(r=><option key={r} value={r}>{r||"— Assign Rep —"}</option>)}
+              </select>
+            </Fld>
+            {(f.status==="Cold"||f.status==="Not Interested")&&(
+              <div style={{gridColumn:"1/-1"}}>
+                <Fld label="❌ Lost Reason">
+                  <select value={f.lostReason||""} onChange={e=>set("lostReason",e.target.value)} style={{...inp}}>
+                    {LOST_REASONS.map(r=><option key={r} value={r}>{r||"— Select Reason —"}</option>)}
+                  </select>
+                </Fld>
+              </div>
+            )}
+          </div>
+
+          {/* Monthly Spend History */}
+          <SpendHistoryPanel f={f} set={set}/>
+
+          {/* Call Log */}
+          <CallLogPanel f={f} set={set}/>
 
           {/* Stocking toggle */}
           <div style={{marginBottom:14,padding:"12px 16px",background:"#f0f9ff",borderRadius:10,border:"1.5px solid #bae6fd",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -594,7 +891,8 @@ function RoutePlanner({customers,onClose}){
   const [search,setSearch]=useState("");
   const [saved,setSaved]=useState([]);
   const [routeName,setRouteName]=useState("");
-  const pool=customers.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())||c.town.toLowerCase().includes(search.toLowerCase())).slice(0,50);
+  const [startFromStore,setStartFromStore]=useState(false);
+  const pool=[...customers.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())||c.town.toLowerCase().includes(search.toLowerCase()))].sort((a,b)=>distFromStore(a)-distFromStore(b));
   const toggle=c=>setStops(p=>p.find(s=>s.id===c.id)?p.filter(s=>s.id!==c.id):[...p,c]);
   const moveUp=i=>{if(i===0)return;const s=[...stops];[s[i-1],s[i]]=[s[i],s[i-1]];setStops(s);};
   const moveDown=i=>{if(i===stops.length-1)return;const s=[...stops];[s[i],s[i+1]]=[s[i+1],s[i]];setStops(s);};
@@ -606,24 +904,27 @@ function RoutePlanner({customers,onClose}){
           <div><div style={{color:"#fff",fontWeight:800,fontSize:18}}>🗺️ Route Planner</div><div style={{color:"#64748b",fontSize:12,marginTop:2}}>Build your day — opens Google Maps with all stops loaded</div></div>
           <button onClick={onClose} style={{color:"#94a3b8",background:"none",border:"none",fontSize:22,cursor:"pointer"}}>✕</button>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr"}}>
-          <div style={{padding:20,borderRight:"1.5px solid #e2e8f0"}}>
+        <div style={{display:"flex",flexWrap:"wrap"}}>
+          <div style={{padding:20,borderRight:"1.5px solid #e2e8f0",flex:"1 1 300px",minWidth:0}}>
             <div style={{fontWeight:700,fontSize:13,color:"#374151",marginBottom:8}}>Select Stops</div>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search..." style={{...inp,marginBottom:8}}/>
             <div style={{maxHeight:400,overflowY:"auto"}}>
               {pool.map(c=>{const isSel=stops.find(s=>s.id===c.id);return<div key={c.id} onClick={()=>toggle(c)} style={{padding:"9px 11px",borderRadius:8,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,background:isSel?"#e0f2fe":"#f8fafc",border:isSel?"1.5px solid #38bdf8":"1.5px solid transparent"}}>
-                <div><div style={{fontWeight:700,fontSize:13,color:"#1e293b"}}>{typeIcons[c.type]||"🏪"} {c.name}</div><div style={{fontSize:11,color:"#64748b"}}>{c.town} · {c.address}</div></div>
+                <div><div style={{fontWeight:700,fontSize:13,color:"#1e293b"}}>{typeIcons[c.type]||"🏪"} {c.name}</div><div style={{fontSize:11,color:"#64748b"}}>{c.town} · {c.lat?`${distFromStore(c).toFixed(1)}mi`:c.address}</div></div>
                 <div style={{fontSize:17}}>{isSel?"✅":"⬜"}</div>
               </div>;})}</div>
           </div>
-          <div style={{padding:20}}>
-            <div style={{fontWeight:700,fontSize:13,color:"#374151",marginBottom:8}}>Your Route ({stops.length} stops)</div>
+          <div style={{padding:20,flex:"1 1 300px",minWidth:0}}>
+            <div style={{fontWeight:700,fontSize:13,color:"#374151",marginBottom:8}}>
+              Your Route ({stops.length} stops)
+              {stops.length>1&&<span style={{fontWeight:500,fontSize:12,color:"#64748b",marginLeft:8}}>~{stops.reduce((sum,c,i)=>sum+(i===0?(startFromStore?distMiles(NAPA_STORE.lat,NAPA_STORE.lng,c.lat||NAPA_STORE.lat,c.lng||NAPA_STORE.lng):0)+distFromStore(c):distMiles(stops[i-1].lat||NAPA_STORE.lat,stops[i-1].lng||NAPA_STORE.lng,c.lat||NAPA_STORE.lat,c.lng||NAPA_STORE.lng)),0).toFixed(0)} mi straight-line</span>}
+            </div>
             {!stops.length&&<div style={{color:"#94a3b8",fontSize:13,textAlign:"center",padding:"36px 0"}}>Select customers on the left</div>}
             <div style={{maxHeight:260,overflowY:"auto",marginBottom:10}}>
               {stops.map((c,i)=>(
                 <div key={c.id} style={{padding:"7px 10px",background:"#f8fafc",borderRadius:8,marginBottom:4,display:"flex",alignItems:"center",gap:8,border:"1.5px solid #e2e8f0"}}>
                   <span style={{fontWeight:800,fontSize:12,color:"#64748b",minWidth:18}}>{i+1}</span>
-                  <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,fontSize:12,color:"#1e293b",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:11,color:"#64748b"}}>{c.town}</div></div>
+                  <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,fontSize:12,color:"#1e293b",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:11,color:"#64748b"}}>{c.town}{c.lat?` · ${distFromStore(c).toFixed(1)}mi`:""}</div></div>
                   <div style={{display:"flex",gap:2}}>
                     <button onClick={()=>moveUp(i)} style={{background:"none",border:"1px solid #e2e8f0",borderRadius:4,cursor:"pointer",fontSize:10,padding:"2px 5px",color:"#64748b"}}>↑</button>
                     <button onClick={()=>moveDown(i)} style={{background:"none",border:"1px solid #e2e8f0",borderRadius:4,cursor:"pointer",fontSize:10,padding:"2px 5px",color:"#64748b"}}>↓</button>
@@ -640,10 +941,16 @@ function RoutePlanner({customers,onClose}){
               <div style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:5}}>Saved Routes</div>
               {saved.map((r,i)=><button key={i} onClick={()=>setStops([...r.stops])} style={{display:"block",width:"100%",textAlign:"left",padding:"6px 10px",background:"#f1f5f9",border:"1px solid #e2e8f0",borderRadius:6,marginBottom:4,cursor:"pointer",fontSize:12,color:"#374151",fontWeight:600}}>📍 {r.name} ({r.stops.length} stops)</button>)}
             </div>}
-            <a href={stops.length?multiStopMapsUrl(stops):"#"} target="_blank" rel="noopener noreferrer" style={{display:"block",textAlign:"center",padding:"13px 0",background:stops.length?"#16a34a":"#d1d5db",color:"#fff",borderRadius:10,fontWeight:800,fontSize:14,textDecoration:"none",opacity:stops.length?1:0.6,pointerEvents:stops.length?"auto":"none"}}>
+                    {/* Start from store toggle */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",background:"#f0f9ff",borderRadius:8,border:"1.5px solid #bae6fd",marginBottom:10}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#0c4a6e"}}>🏪 Start from NAPA Store</div>
+              <button onClick={()=>setStartFromStore(s=>!s)} style={{padding:"4px 12px",background:startFromStore?"#16a34a":"#d1d5db",color:startFromStore?"#fff":"#374151",border:"none",borderRadius:6,fontWeight:700,fontSize:12,cursor:"pointer"}}>{startFromStore?"ON":"OFF"}</button>
+            </div>
+            {startFromStore&&stops.length>0&&<div style={{fontSize:11,color:"#0369a1",marginBottom:8,padding:"6px 10px",background:"#e0f2fe",borderRadius:6}}>📍 Route starts: NAPA Auto Parts, 1333 US-377, Pilot Point TX → {stops.length} stop{stops.length!==1?"s":""}</div>}
+            <a href={stops.length?multiStopMapsUrl(startFromStore?[{fullAddress:NAPA_STORE.address},...stops]:stops):"#"} target="_blank" rel="noopener noreferrer" style={{display:"block",textAlign:"center",padding:"13px 0",background:stops.length?"#16a34a":"#d1d5db",color:"#fff",borderRadius:10,fontWeight:800,fontSize:14,textDecoration:"none",opacity:stops.length?1:0.6,pointerEvents:stops.length?"auto":"none"}}>
               🗺️ Open Full Route in Google Maps
             </a>
-            {stops.length>0&&<div style={{textAlign:"center",fontSize:11,color:"#64748b",marginTop:5}}>Opens Google Maps with all {stops.length} stops — turn-by-turn ready</div>}
+            {stops.length>0&&<div style={{textAlign:"center",fontSize:11,color:"#64748b",marginTop:5}}>{startFromStore?"Starts at NAPA store → ":""}{stops.length} stop{stops.length!==1?"s":""} — turn-by-turn ready</div>}
           </div>
         </div>
       </div>
@@ -658,6 +965,7 @@ export default function App(){
   const [townF,setTownF]           = useState("All Towns");
   const [priF,setPriF]             = useState("All");
   const [stsF,setStsF]             = useState("");
+  const [repF,setRepF]             = useState("");
   const [sortBy,setSortBy]         = useState("priority");
   const [viewMode,setViewMode]     = useState("grid");
   const [selected,setSelected]     = useState(null);
@@ -679,14 +987,16 @@ export default function App(){
     if(townF!=="All Towns")list=list.filter(c=>c.town===townF);
     if(priF!=="All")list=list.filter(c=>c.priority===priF);
     if(stsF)list=list.filter(c=>c.status===stsF);
+    if(repF)list=list.filter(c=>c.repName===repF);
     const ord={High:0,Medium:1,Low:2};
     if(sortBy==="priority")list=[...list].sort((a,b)=>(ord[a.priority]??3)-(ord[b.priority]??3));
     else if(sortBy==="spend")list=[...list].sort((a,b)=>(parseFloat(b.monthlySpend)||0)-(parseFloat(a.monthlySpend)||0));
     else if(sortBy==="rating")list=[...list].sort((a,b)=>(parseFloat(b.rating)||0)-(parseFloat(a.rating)||0));
     else if(sortBy==="followup")list=[...list].sort((a,b)=>(a.nextFollowUp||"9999")<(b.nextFollowUp||"9999")?-1:1);
+    else if(sortBy==="distance")list=[...list].sort((a,b)=>distFromStore(a)-distFromStore(b));
     else if(sortBy==="name")list=[...list].sort((a,b)=>a.name.localeCompare(b.name));
     return list;
-  },[customers,search,townF,priF,stsF,sortBy,activeTab]);
+  },[customers,search,townF,priF,stsF,repF,sortBy,activeTab]);
 
   const stats=useMemo(()=>({
     total:customers.length,
@@ -762,11 +1072,13 @@ export default function App(){
           <select value={townF}  onChange={e=>setTownF(e.target.value)}  style={sel}>{ALL_TOWNS.map(t=><option key={t}>{t}</option>)}</select>
           <select value={priF}   onChange={e=>setPriF(e.target.value)}   style={sel}><option value="All">All Priorities</option>{PRIORITIES.map(p=><option key={p}>{p}</option>)}</select>
           <select value={stsF}   onChange={e=>setStsF(e.target.value)}   style={sel}><option value="">All Statuses</option>{STATUSES.filter(Boolean).map(s=><option key={s}>{s}</option>)}</select>
+          <select value={repF}   onChange={e=>setRepF(e.target.value)}   style={sel}><option value="">All Reps</option>{REPS.filter(Boolean).map(r=><option key={r}>{r}</option>)}</select>
           <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={sel}>
             <option value="priority">Sort: Priority</option>
             <option value="spend">Sort: Spend $</option>
             <option value="rating">Sort: Rating</option>
             <option value="followup">Sort: Follow-up Date</option>
+            <option value="distance">Sort: Distance from Store</option>
             <option value="name">Sort: Name A–Z</option>
           </select>
           <div style={{display:"flex",border:"1.5px solid #e2e8f0",borderRadius:8,overflow:"hidden"}}>
@@ -805,9 +1117,11 @@ export default function App(){
                   </div>
                 </div>
                 <div style={{fontWeight:800,fontSize:14,color:"#1e293b",marginBottom:2,lineHeight:1.3}}>{c.name}</div>
-                <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:5}}>{c.town} · {c.type}{c.acctNum?` · #${c.acctNum}`:""}</div>
+                <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:5}}>{c.town} · {c.type}{c.acctNum?` · #${c.acctNum}`:""}{c.lat?<span style={{marginLeft:6,color:"#94a3b8",fontWeight:500}}>📍 {distFromStore(c).toFixed(1)}mi</span>:null}</div>
                 <AddrLink addr={c.fullAddress||c.address} style={{fontSize:12,marginBottom:5,display:"block"}}/>
                 {c.contact&&<div style={{fontSize:12,color:"#475569",marginBottom:4}}>👤 {c.contact}</div>}
+                {c.phone&&<a href={`tel:${c.phone}`} onClick={e=>e.stopPropagation()} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:12,color:"#16a34a",fontWeight:700,textDecoration:"none",marginBottom:4,background:"#f0fdf4",padding:"3px 8px",borderRadius:20,border:"1px solid #bbf7d0"}}>📞 {c.phone}</a>}
+                {c.competitor&&<div style={{fontSize:11,color:"#dc2626",fontWeight:600,marginBottom:3}}>⚡ vs {c.competitor}</div>}
                 {c.notes&&<div style={{fontSize:12,color:"#64748b",marginBottom:8,lineHeight:1.4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{c.notes}</div>}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:"1px solid #f1f5f9"}}>
                   <SpendBadge spend={c.monthlySpend}/>
@@ -823,7 +1137,7 @@ export default function App(){
             <table style={{width:"100%",borderCollapse:"collapse",minWidth:960}}>
               <thead>
                 <tr style={{background:"#f8fafc",borderBottom:"2px solid #e2e8f0"}}>
-                  {["Business","Town","Type","Acct #","Address","Phone","Contact","Spend","Priority","Status","Follow-Up"].map(h=>(
+                  {["Business","Town","Type","Acct #","Distance","Phone","Contact","Rep","Spend","Priority","Status","Follow-Up"].map(h=>(
                     <th key={h} style={{padding:"9px 11px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
                   ))}
                 </tr>
@@ -837,9 +1151,10 @@ export default function App(){
                     <td style={{padding:"8px 11px",fontSize:12,color:"#64748b"}}>{c.town}</td>
                     <td style={{padding:"8px 11px",fontSize:12,color:"#64748b"}}>{c.type}</td>
                     <td style={{padding:"8px 11px",fontSize:12,color:"#64748b"}}>{c.acctNum||"—"}</td>
-                    <td style={{padding:"8px 11px"}}><AddrLink addr={c.address} style={{fontSize:11}}/></td>
-                    <td style={{padding:"8px 11px",fontSize:12,color:"#64748b",whiteSpace:"nowrap"}}>{c.phone||"—"}</td>
+                    <td style={{padding:"8px 11px",fontSize:12,color:"#94a3b8"}}>{c.lat?`${distFromStore(c).toFixed(1)} mi`:"—"}</td>
+                    <td style={{padding:"8px 11px",whiteSpace:"nowrap"}}>{c.phone?<a href={`tel:${c.phone}`} onClick={e=>e.stopPropagation()} style={{color:"#16a34a",fontSize:12,fontWeight:700,textDecoration:"none"}}>📞 {c.phone}</a>:<span style={{color:"#d1d5db",fontSize:12}}>—</span>}</td>
                     <td style={{padding:"8px 11px",fontSize:12,color:"#64748b"}}>{c.contact||"—"}</td>
+                    <td style={{padding:"8px 11px",fontSize:12,color:"#64748b"}}>{c.repName||"—"}</td>
                     <td style={{padding:"8px 11px"}}><SpendBadge spend={c.monthlySpend}/></td>
                     <td style={{padding:"8px 11px"}}><PriBadge p={c.priority}/></td>
                     <td style={{padding:"8px 11px"}}>{c.status?<StsBadge s={c.status}/>:<span style={{color:"#d1d5db",fontSize:12}}>—</span>}</td>
