@@ -116,14 +116,26 @@ const LOST_REASONS = ["","Price","Relationship","Product Availability","Went to 
 const PRIORITIES = ["High","Medium","Low"];
 const ALL_TOWNS  = ["All Towns",...Array.from(new Set(INITIAL_CUSTOMERS.map(c=>c.town))).sort()];
 
+// ─── NAPA BRAND PALETTE ───────────────────────────────────────────────────────
+const NAPA_NAVY   = "#081d63";  // management report navy
+const NAPA_BLUE   = "#092a91";  // secondary navy accent
+const NAPA_RED    = "#cc0000";  // NAPA red
+const NAPA_YELLOW = "#ffc928";  // NAPA yellow
+const NAPA_PANEL  = "#f3f6fb";  // light panel
+const NAPA_BODY   = "#2a3550";  // body text
+
 const priorityConfig = {
-  High:   {bg:"#fee2e2",text:"#991b1b",dot:"#ef4444"},
-  Medium: {bg:"#fef3c7",text:"#92400e",dot:"#f59e0b"},
-  Low:    {bg:"#dbeafe",text:"#1e40af",dot:"#3b82f6"},
+  High:   {bg:"#fde8e8",text:"#9b0000",dot:NAPA_RED},
+  Medium: {bg:"#fff5d6",text:"#5a3e00",dot:NAPA_YELLOW},
+  Low:    {bg:"#e8ecf8",text:NAPA_NAVY,dot:NAPA_NAVY},
 };
 const statusColors = {
   Customer:"#16a34a",Active:"#0891b2","Warm Lead":"#d97706",
-  Prospect:"#7c3aed",Cold:"#9ca3af","Not Interested":"#dc2626","":"#9ca3af"
+  Prospect:NAPA_YELLOW,Cold:"#9ca3af","Not Interested":NAPA_RED,"":"#9ca3af"
+};
+const statusTextColors = {
+  Customer:"#fff",Active:"#fff","Warm Lead":"#fff",
+  Prospect:NAPA_NAVY,Cold:"#fff","Not Interested":"#fff","":"#fff"
 };
 const typeIcons = {
   "Auto Repair":"🔧","Tire Shop":"🛞","Auto Body":"🚗","Diesel Repair":"🚛","Diesel Truck":"🚛",
@@ -151,21 +163,24 @@ const formatDate = d=>{ if(!d)return""; const dt=new Date(d+"T12:00:00"); return
 const daysUntil = d=>{ if(!d)return null; const diff=new Date(d+"T12:00:00")-new Date(); return Math.ceil(diff/(1000*60*60*24)); };
 
 // ─── STYLES ───────────────────────────────────────────────────────────────────
-const inp  = {width:"100%",border:"1.5px solid #d1d5db",borderRadius:8,padding:"8px 10px",fontSize:13,color:"#1f2937",boxSizing:"border-box",background:"#fff"};
-const sel  = {border:"1.5px solid #e2e8f0",borderRadius:8,padding:"8px 10px",fontSize:13,color:"#1f2937",background:"#fff",cursor:"pointer"};
+const inp  = {width:"100%",border:"1.5px solid #c8d3e8",borderRadius:8,padding:"8px 10px",fontSize:13,color:NAPA_BODY,boxSizing:"border-box",background:"#fff"};
+const sel  = {border:"1.5px solid #c8d3e8",borderRadius:8,padding:"8px 10px",fontSize:13,color:NAPA_BODY,background:"#fff",cursor:"pointer"};
 const lbl  = {display:"block",fontSize:11,fontWeight:700,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4};
 const btn  = (bg,color="#fff")=>({padding:"9px 18px",background:bg,border:"none",borderRadius:8,color,fontWeight:700,cursor:"pointer",fontSize:13});
 
 // ─── ATOMS ────────────────────────────────────────────────────────────────────
 function PriBadge({p}){const c=priorityConfig[p]||{bg:"#f3f4f6",text:"#374151",dot:"#9ca3af"};return<span style={{background:c.bg,color:c.text,padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:c.dot,display:"inline-block"}}/>{p}</span>;}
-function StsBadge({s}){const color=statusColors[s]||"#9ca3af";return<span style={{background:color+"22",color,border:`1px solid ${color}44`,padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:700}}>{s||"Unset"}</span>;}
+function StsBadge({s}){const bg=statusColors[s]||"#9ca3af";const txt=statusTextColors[s]||"#fff";return<span style={{background:bg,color:txt,padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:700}}>{s||"Unset"}</span>;}
 function SpendBadge({spend}){const t=getSpendTier(spend);return<span style={{background:t.bg,color:t.color,padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:t.dot,display:"inline-block"}}/>{t.label}</span>;}
 function AddrLink({addr,style={}}){if(!addr)return<span style={{color:"#9ca3af"}}>—</span>;return<a href={mapsUrl(addr)} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#2563eb",fontSize:13,fontWeight:500,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,...style}} onMouseEnter={e=>e.currentTarget.style.textDecoration="underline"} onMouseLeave={e=>e.currentTarget.style.textDecoration="none"}>📍 {addr}</a>;}
 function Fld({label,children}){return<div><label style={lbl}>{label}</label>{children}</div>;}
 
-// ─── NAPA LOGO ────────────────────────────────────────────────────────────────
-function NapaLogo(){
-  return <div/>;
+// ─── NAPA LOGO / BRAND MARK ───────────────────────────────────────────────────
+const NAPA_LOGO_B64 = "data:image/png;base64,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";
+function NapaBrand(){
+  return(
+    <img src={NAPA_LOGO_B64} alt="NAPA" style={{height:44,width:"auto",objectFit:"contain"}}/>
+  );
 }
 
 // ─── INVENTORY PANEL ──────────────────────────────────────────────────────────
@@ -217,8 +232,8 @@ function InvPanel({customer,onUpdate}){
         return(
           <div key={cat} style={{marginBottom:10,border:"1.5px solid #e2e8f0",borderRadius:8,overflow:"hidden"}}>
             {/* Category header - clickable to collapse */}
-            <div onClick={()=>toggleCollapse(cat)} style={{background:"#f1f5f9",padding:"7px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
-              <div style={{fontWeight:700,fontSize:12,color:"#1e293b"}}>{cat} <span style={{color:"#64748b",fontWeight:500}}>({catItems.length})</span></div>
+            <div onClick={()=>toggleCollapse(cat)} style={{background:NAPA_PANEL,padding:"7px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none",borderLeft:`3px solid ${NAPA_YELLOW}`}}>
+              <div style={{fontWeight:700,fontSize:12,color:NAPA_NAVY}}>{cat} <span style={{color:"#64748b",fontWeight:500}}>({catItems.length})</span></div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 {catOrderItems.length>0&&<span style={{background:"#fee2e2",color:"#991b1b",padding:"1px 7px",borderRadius:20,fontSize:10,fontWeight:700}}>ORDER {catOrderItems.reduce((s,i)=>s+(i.parLevel-i.currentStock),0)}</span>}
                 <span style={{color:"#64748b",fontSize:12}}>{isOpen?"▼":"▶"}</span>
@@ -228,7 +243,7 @@ function InvPanel({customer,onUpdate}){
             {isOpen&&(
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",minWidth:480,borderCollapse:"collapse",fontSize:12}}>
-                  <thead><tr style={{background:"#e8ecf0"}}>{["Part #","Description","Par","Stock","Order","Actions"].map(h=><th key={h} style={{padding:"5px 8px",textAlign:"left",fontWeight:700,color:"#374151",fontSize:11}}>{h}</th>)}</tr></thead>
+                  <thead><tr style={{background:NAPA_NAVY}}>{["Part #","Description","Par","Stock","Order","Actions"].map(h=><th key={h} style={{padding:"5px 8px",textAlign:"left",fontWeight:700,color:"#cbd5e1",fontSize:11}}>{h}</th>)}</tr></thead>
                   <tbody>{catItems.map(item=>{
                     const low=item.currentStock<item.parLevel;
                     const orderQty=low?item.parLevel-item.currentStock:0;
@@ -268,7 +283,7 @@ function InvPanel({customer,onUpdate}){
           <div><label style={{...lbl,fontSize:10}}>Description</label><input value={np.description} onChange={e=>setNp(p=>({...p,description:e.target.value}))} placeholder="Oil Filter" style={{...inp,fontSize:12}}/></div>
           <div><label style={{...lbl,fontSize:10}}>Par</label><input type="number" value={np.parLevel} onChange={e=>setNp(p=>({...p,parLevel:e.target.value}))} placeholder="12" style={{...inp,fontSize:12}}/></div>
           <div><label style={{...lbl,fontSize:10}}>Stock</label><input type="number" value={np.currentStock} onChange={e=>setNp(p=>({...p,currentStock:e.target.value}))} placeholder="0" style={{...inp,fontSize:12}}/></div>
-          <button onClick={add} style={{...btn("#1e293b"),padding:"8px 12px",fontSize:12,marginTop:16}}>+ Add</button>
+          <button onClick={add} style={{...btn(NAPA_NAVY),padding:"8px 12px",fontSize:12,marginTop:16}}>+ Add</button>
         </div>
       </div>
       <ReorderHistoryPanel customer={customer} onUpdate={onUpdate}/>
@@ -335,7 +350,7 @@ function InvPrintModal({customers,onClose}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:560,boxShadow:"0 24px 60px rgba(0,0,0,0.3)"}}>
-        <div style={{background:"#1e293b",padding:"18px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{background:NAPA_NAVY,padding:"18px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`3px solid ${NAPA_YELLOW}`}}>
           <div style={{color:"#fff",fontWeight:800,fontSize:16}}>🖨️ Inventory Reorder Sheet</div>
           <button onClick={onClose} style={{color:"#94a3b8",background:"none",border:"none",fontSize:22,cursor:"pointer"}}>✕</button>
         </div>
@@ -371,7 +386,7 @@ function InvDash({customers,onUpdate,onClose,onPrint}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:780,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.3)"}}>
-        <div style={{background:"#1e293b",padding:"20px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{background:NAPA_NAVY,padding:"20px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`3px solid ${NAPA_YELLOW}`}}>
           <div>
             <div style={{color:"#fff",fontWeight:800,fontSize:18}}>📦 Stocking Account Inventory</div>
             <div style={{color:"#64748b",fontSize:12,marginTop:2}}>{accts.length} stocking accounts · {alerts.length} items need reorder</div>
@@ -412,21 +427,21 @@ function Dashboard({customers,onClose,onSelectCustomer}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:860,maxHeight:"93vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.3)"}}>
-        <div style={{background:"#1e293b",padding:"20px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div><div style={{color:"#fff",fontWeight:800,fontSize:18}}>📊 Territory Dashboard</div><div style={{color:"#64748b",fontSize:12,marginTop:2}}>North Texas Sales Territory Overview</div></div>
+        <div style={{background:NAPA_NAVY,padding:"20px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`3px solid ${NAPA_YELLOW}`}}>
+          <div><div style={{color:"#fff",fontWeight:800,fontSize:18}}>📊 Territory Dashboard</div><div style={{color:"#94a3b8",fontSize:12,marginTop:2}}>North Texas Sales Territory Overview</div></div>
           <button onClick={onClose} style={{color:"#94a3b8",background:"none",border:"none",fontSize:22,cursor:"pointer"}}>✕</button>
         </div>
         <div style={{padding:24}}>
           {/* KPI row */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:12,marginBottom:24}}>
             {[
-              {label:"Total Accounts",value:customers.length,icon:"🏢",color:"#1e293b"},
-              {label:"Active Customers",value:activeCustomers.length,icon:"✅",color:"#16a34a"},
-              {label:"Monthly Spend",value:`$${totalSpend.toLocaleString()}`,icon:"💰",color:"#0891b2"},
-              {label:"Open Follow-Ups",value:openFollowups.length,icon:"📅",color:"#d97706"},
-              {label:"Reorders Needed",value:reorderCount,icon:"🔴",color:reorderCount>0?"#dc2626":"#16a34a"},
+              {label:"Total Accounts",value:customers.length,icon:"🏢",color:NAPA_NAVY,border:NAPA_NAVY},
+              {label:"Active Customers",value:activeCustomers.length,icon:"✅",color:"#16a34a",border:"#16a34a"},
+              {label:"Monthly Spend",value:`$${totalSpend.toLocaleString()}`,icon:"💰",color:NAPA_BLUE,border:NAPA_BLUE},
+              {label:"Open Follow-Ups",value:openFollowups.length,icon:"📅",color:"#d97706",border:NAPA_YELLOW},
+              {label:"Reorders Needed",value:reorderCount,icon:"🔴",color:reorderCount>0?NAPA_RED:"#16a34a",border:reorderCount>0?NAPA_RED:"#16a34a"},
             ].map(k=>(
-              <div key={k.label} style={{background:"#f8fafc",borderRadius:12,padding:"16px 14px",textAlign:"center",border:"1.5px solid #e2e8f0"}}>
+              <div key={k.label} style={{background:"#fff",borderRadius:12,padding:"16px 14px",textAlign:"center",border:"1.5px solid #e2e8f0",borderTop:`4px solid ${k.border}`}}>
                 <div style={{fontSize:24,marginBottom:4}}>{k.icon}</div>
                 <div style={{fontWeight:900,fontSize:22,color:k.color,lineHeight:1}}>{k.value}</div>
                 <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginTop:4,textTransform:"uppercase",letterSpacing:"0.04em"}}>{k.label}</div>
@@ -437,7 +452,7 @@ function Dashboard({customers,onClose,onSelectCustomer}){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:20}}>
             {/* Top accounts */}
             <div style={{border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-              <div style={{background:"#f8fafc",padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0"}}>💰 Top Accounts by Monthly Spend</div>
+              <div style={{background:NAPA_NAVY,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#fff",borderBottom:`2px solid ${NAPA_YELLOW}`}}>💰 Top Accounts by Monthly Spend</div>
               {topAccounts.length===0&&<div style={{padding:20,color:"#94a3b8",fontSize:13,textAlign:"center"}}>No spend data yet — add monthly spend amounts to customers</div>}
               {topAccounts.map((c,i)=>(
                 <div key={c.id} onClick={()=>{onClose();onSelectCustomer(c);}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid #f1f5f9",cursor:"pointer",background:"#fff"}} onMouseEnter={e=>e.currentTarget.style.background="#f0f9ff"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
@@ -455,7 +470,7 @@ function Dashboard({customers,onClose,onSelectCustomer}){
 
             {/* Open follow-ups */}
             <div style={{border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-              <div style={{background:"#f8fafc",padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0"}}>📅 Upcoming Follow-Ups</div>
+              <div style={{background:NAPA_NAVY,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#fff",borderBottom:`2px solid ${NAPA_YELLOW}`}}>📅 Upcoming Follow-Ups</div>
               {openFollowups.length===0&&<div style={{padding:20,color:"#94a3b8",fontSize:13,textAlign:"center"}}>No follow-ups scheduled — add them in customer profiles</div>}
               {openFollowups.slice(0,8).map(c=>{
                 const days=daysUntil(c.nextFollowUp);
@@ -477,7 +492,7 @@ function Dashboard({customers,onClose,onSelectCustomer}){
 
           {/* By town */}
           <div style={{border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-            <div style={{background:"#f8fafc",padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0"}}>📍 Accounts by Town</div>
+            <div style={{background:NAPA_NAVY,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#fff",borderBottom:`2px solid ${NAPA_YELLOW}`}}>📍 Accounts by Town</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))"}}>
               {byTown.map(t=>(
                 <div key={t.town} style={{padding:"12px 16px",borderRight:"1px solid #f1f5f9",borderBottom:"1px solid #f1f5f9"}}>
@@ -493,7 +508,7 @@ function Dashboard({customers,onClose,onSelectCustomer}){
 
           {/* Spend distribution */}
           <div style={{marginTop:20,border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-            <div style={{background:"#f8fafc",padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0"}}>💵 Spend Distribution</div>
+            <div style={{background:NAPA_NAVY,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#fff",borderBottom:`2px solid ${NAPA_YELLOW}`}}>💵 Spend Distribution</div>
             <div style={{padding:16,display:"flex",gap:12,flexWrap:"wrap"}}>
               {SPEND_TIERS.map(t=>{
                 const count=customers.filter(c=>getSpendTier(c.monthlySpend).label===t.label).length;
@@ -507,7 +522,7 @@ function Dashboard({customers,onClose,onSelectCustomer}){
 
           {/* Competitor breakdown */}
           <div style={{marginTop:20,border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-            <div style={{background:"#f8fafc",padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0"}}>⚡ Competitor Breakdown</div>
+            <div style={{background:NAPA_NAVY,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#fff",borderBottom:`2px solid ${NAPA_YELLOW}`}}>⚡ Competitor Breakdown</div>
             <div style={{padding:16,display:"flex",gap:10,flexWrap:"wrap"}}>
               {COMPETITORS.filter(Boolean).map(comp=>{
                 const count=customers.filter(c=>c.competitor===comp).length;
@@ -524,7 +539,7 @@ function Dashboard({customers,onClose,onSelectCustomer}){
           {/* Rep assignment */}
           {REPS.filter(Boolean).some(r=>customers.some(c=>c.repName===r))&&(
             <div style={{marginTop:20,border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-              <div style={{background:"#f8fafc",padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0"}}>👤 Accounts by Rep</div>
+              <div style={{background:NAPA_NAVY,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#fff",borderBottom:`2px solid ${NAPA_YELLOW}`}}>👤 Accounts by Rep</div>
               <div style={{padding:16,display:"flex",gap:10,flexWrap:"wrap"}}>
                 {REPS.filter(Boolean).map(rep=>{
                   const accs=customers.filter(c=>c.repName===rep);
@@ -557,8 +572,8 @@ function WeeklyCallList({customers,onClose,onSelectCustomer}){
 
   const Section=({title,items,emptyMsg,bg="#fff"})=>(
     <div style={{marginBottom:20,border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-      <div style={{background:bg,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#1e293b",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        {title}<span style={{background:"#1e293b",color:"#fff",borderRadius:20,fontSize:11,fontWeight:700,padding:"2px 8px"}}>{items.length}</span>
+      <div style={{background:NAPA_NAVY,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#fff",borderBottom:`2px solid ${NAPA_YELLOW}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        {title}<span style={{background:NAPA_YELLOW,color:NAPA_NAVY,borderRadius:20,fontSize:11,fontWeight:800,padding:"2px 8px"}}>{items.length}</span>
       </div>
       {items.length===0&&<div style={{padding:"16px",color:"#94a3b8",fontSize:13,textAlign:"center"}}>{emptyMsg}</div>}
       {items.map(c=>{
@@ -586,7 +601,7 @@ function WeeklyCallList({customers,onClose,onSelectCustomer}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:720,maxHeight:"93vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.3)"}}>
-        <div style={{background:"#1e293b",padding:"20px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{background:NAPA_NAVY,padding:"20px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`3px solid ${NAPA_YELLOW}`}}>
           <div>
             <div style={{color:"#fff",fontWeight:800,fontSize:18}}>📋 Weekly Call List</div>
             <div style={{color:"#64748b",fontSize:12,marginTop:2}}>Week of {new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
@@ -614,7 +629,7 @@ function AddModal({onClose,onAdd}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.3)"}}>
-        <div style={{background:"#1e293b",padding:"18px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{background:NAPA_NAVY,padding:"18px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`3px solid ${NAPA_YELLOW}`}}>
           <div style={{color:"#fff",fontWeight:800,fontSize:16}}>➕ Add New Customer</div>
           <button onClick={onClose} style={{color:"#94a3b8",background:"none",border:"none",fontSize:22,cursor:"pointer"}}>✕</button>
         </div>
@@ -639,7 +654,7 @@ function AddModal({onClose,onAdd}){
           <div style={{gridColumn:"1/-1"}}><Fld label="Notes"><textarea value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2} style={{...inp,resize:"vertical"}}/></Fld></div>
           <div style={{gridColumn:"1/-1",display:"flex",gap:10,justifyContent:"flex-end"}}>
             <button onClick={onClose} style={{...btn("#f1f5f9","#374151"),border:"1.5px solid #d1d5db"}}>Cancel</button>
-            <button onClick={save} style={btn("#1e293b")}>Add Customer</button>
+            <button onClick={save} style={btn(NAPA_NAVY)}>Add Customer</button>
           </div>
         </div>
       </div>
@@ -674,7 +689,7 @@ function CallLogPanel({f,set}){
           <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:3}}>Notes</label>
           <input value={newEntry} onChange={e=>setNewEntry(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addLog()} placeholder="What was discussed..." style={{...inp,fontSize:12}}/>
         </div>
-        <button onClick={addLog} style={{padding:"8px 12px",background:"#1e293b",border:"none",borderRadius:8,color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer",marginTop:16}}>+ Log</button>
+        <button onClick={addLog} style={{padding:"8px 12px",background:NAPA_NAVY,border:"none",borderRadius:8,color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer",marginTop:16}}>+ Log</button>
       </div>
       {/* Log entries */}
       {logs.length===0&&<div style={{color:"#94a3b8",fontSize:12,textAlign:"center",padding:"8px 0"}}>No calls logged yet</div>}
@@ -717,7 +732,7 @@ function SpendHistoryPanel({f,set}){
           <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:3}}>Amount ($)</label>
           <input type="number" value={newAmt} onChange={e=>setNewAmt(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addEntry()} placeholder="0" style={{...inp,fontSize:12}}/>
         </div>
-        <button onClick={addEntry} style={{padding:"8px 12px",background:"#1e293b",border:"none",borderRadius:8,color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer",marginTop:16}}>+ Add</button>
+        <button onClick={addEntry} style={{padding:"8px 12px",background:NAPA_NAVY,border:"none",borderRadius:8,color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer",marginTop:16}}>+ Add</button>
       </div>
       {history.length===0&&<div style={{color:"#94a3b8",fontSize:12,textAlign:"center",padding:"8px 0"}}>No spend history yet</div>}
       {history.length>0&&(
@@ -786,7 +801,7 @@ function DetailModal({customer,onClose,onSave,onDelete}){
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:700,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.3)"}}>
         {/* Header */}
-        <div style={{background:"#1e293b",padding:"20px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        <div style={{background:NAPA_NAVY,padding:"20px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"flex-start",borderBottom:`3px solid ${NAPA_YELLOW}`}}>
           <div>
             <div style={{color:"#94a3b8",fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{f.town} · {f.type}{f.acctNum?` · Acct #${f.acctNum}`:""}</div>
             <div style={{color:"#fff",fontWeight:800,fontSize:18}}>{f.name}</div>
@@ -876,7 +891,7 @@ function DetailModal({customer,onClose,onSave,onDelete}){
             </div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={onClose} style={{...btn("#f1f5f9","#374151"),border:"1.5px solid #d1d5db"}}>Cancel</button>
-              <button onClick={save} style={btn("#1e293b")}>Save Changes</button>
+              <button onClick={save} style={btn(NAPA_NAVY)}>Save Changes</button>
             </div>
           </div>
         </div>
@@ -900,7 +915,7 @@ function RoutePlanner({customers,onClose}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:840,maxHeight:"93vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.3)"}}>
-        <div style={{background:"#1e293b",padding:"20px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{background:NAPA_NAVY,padding:"20px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`3px solid ${NAPA_YELLOW}`}}>
           <div><div style={{color:"#fff",fontWeight:800,fontSize:18}}>🗺️ Route Planner</div><div style={{color:"#64748b",fontSize:12,marginTop:2}}>Build your day — opens Google Maps with all stops loaded</div></div>
           <button onClick={onClose} style={{color:"#94a3b8",background:"none",border:"none",fontSize:22,cursor:"pointer"}}>✕</button>
         </div>
@@ -909,7 +924,7 @@ function RoutePlanner({customers,onClose}){
             <div style={{fontWeight:700,fontSize:13,color:"#374151",marginBottom:8}}>Select Stops</div>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search..." style={{...inp,marginBottom:8}}/>
             <div style={{maxHeight:400,overflowY:"auto"}}>
-              {pool.map(c=>{const isSel=stops.find(s=>s.id===c.id);return<div key={c.id} onClick={()=>toggle(c)} style={{padding:"9px 11px",borderRadius:8,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,background:isSel?"#e0f2fe":"#f8fafc",border:isSel?"1.5px solid #38bdf8":"1.5px solid transparent"}}>
+              {pool.map(c=>{const isSel=stops.find(s=>s.id===c.id);return<div key={c.id} onClick={()=>toggle(c)} style={{padding:"9px 11px",borderRadius:8,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,background:isSel?NAPA_YELLOW+"22":NAPA_PANEL,border:isSel?`1.5px solid ${NAPA_YELLOW}`:"1.5px solid transparent"}}>
                 <div><div style={{fontWeight:700,fontSize:13,color:"#1e293b"}}>{typeIcons[c.type]||"🏪"} {c.name}</div><div style={{fontSize:11,color:"#64748b"}}>{c.town} · {c.lat?`${distFromStore(c).toFixed(1)}mi`:c.address}</div></div>
                 <div style={{fontSize:17}}>{isSel?"✅":"⬜"}</div>
               </div>;})}</div>
@@ -1008,13 +1023,15 @@ export default function App(){
   }),[customers]);
 
   return(
-    <div style={{fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",background:"#f1f5f9",minHeight:"100vh"}}>
+    <div style={{fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",background:NAPA_PANEL,minHeight:"100vh"}}>
 
       {/* ── HEADER ── */}
-      <div style={{background:"#1e293b",position:"sticky",top:0,zIndex:50,borderBottom:"3px solid #cc0000"}}>
+      <div style={{background:NAPA_NAVY,position:"sticky",top:0,zIndex:50,borderBottom:`4px solid ${NAPA_YELLOW}`}}>
         {/* Desktop header — single row */}
         <div style={{display:"none",maxWidth:1440,margin:"0 auto",padding:"0 24px",height:64,alignItems:"center",justifyContent:"space-between",gap:16}} className="desktop-header">
           <div style={{display:"flex",gap:24,alignItems:"center"}}>
+            <NapaBrand/>
+            <div style={{width:1,height:36,background:"rgba(255,255,255,0.15)"}}/>
             {[["🏢",stats.total,"Accounts"],["✅",stats.active,"Customers"],["📅",stats.overdue>0?`${stats.overdue} overdue`:stats.followups,"Follow-ups"],["🔴",stats.reorders,"Reorders"]].map(([icon,val,label])=>(
               <div key={label} style={{textAlign:"center"}}>
                 <div style={{color:label==="Reorders"&&stats.reorders>0?"#ef4444":label==="Follow-ups"&&stats.overdue>0?"#fbbf24":"#fff",fontWeight:800,fontSize:17,lineHeight:1}}>{icon} {val}</div>
@@ -1023,15 +1040,18 @@ export default function App(){
             ))}
           </div>
           <div style={{display:"flex",gap:7,alignItems:"center"}}>
-            <button onClick={()=>setShowDash(true)}  style={{...btn("#334155"),fontSize:12,padding:"8px 14px"}}>📊 Dashboard</button>
-            <button onClick={()=>setShowCalls(true)} style={{...btn(stats.overdue>0?"#d97706":"#334155"),fontSize:12,padding:"8px 14px"}}>📋 Call List{stats.overdue>0?` (${stats.overdue})`:""}</button>
-            <button onClick={()=>setShowRoute(true)} style={{...btn("#334155"),fontSize:12,padding:"8px 14px"}}>🗺️ Route</button>
-            <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?"#dc2626":"#334155"),fontSize:12,padding:"8px 14px"}}>📦 Inventory{stats.reorders>0?` (${stats.reorders})`:""}</button>
-            <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:12,padding:"8px 14px"}}>➕ Add</button>
+            <button onClick={()=>setShowDash(true)}  style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>📊 Dashboard</button>
+            <button onClick={()=>setShowCalls(true)} style={{...btn(stats.overdue>0?"#f59e0b":NAPA_YELLOW,NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>📋 Call List{stats.overdue>0?` (${stats.overdue})`:""}</button>
+            <button onClick={()=>setShowRoute(true)} style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>🗺️ Route</button>
+            <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?NAPA_RED:NAPA_YELLOW,stats.reorders>0?"#fff":NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>📦 Inventory{stats.reorders>0?` (${stats.reorders})`:""}</button>
+            <button onClick={()=>setShowAdd(true)}   style={{...btn(NAPA_RED),fontSize:12,padding:"8px 14px",fontWeight:800}}>➕ Add</button>
           </div>
         </div>
         {/* Mobile header — two rows */}
         <div style={{padding:"10px 14px 8px"}} className="mobile-header">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <NapaBrand/>
+          </div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
             {[["🏢",stats.total,"Accounts"],["✅",stats.active,"Customers"],["📅",stats.overdue>0?stats.overdue:stats.followups,"Follow-ups"],["🔴",stats.reorders,"Reorders"]].map(([icon,val,label])=>(
               <div key={label} style={{textAlign:"center"}}>
@@ -1041,11 +1061,11 @@ export default function App(){
             ))}
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:5}}>
-            <button onClick={()=>setShowDash(true)}  style={{...btn("#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>📊<br/>Dash</button>
-            <button onClick={()=>setShowCalls(true)} style={{...btn(stats.overdue>0?"#d97706":"#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>📋<br/>Calls</button>
-            <button onClick={()=>setShowRoute(true)} style={{...btn("#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>🗺️<br/>Route</button>
-            <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?"#dc2626":"#334155"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>📦<br/>Inv{stats.reorders>0?` ${stats.reorders}`:""}</button>
-            <button onClick={()=>setShowAdd(true)}   style={{...btn("#cc0000"),fontSize:11,padding:"7px 4px",textAlign:"center"}}>➕<br/>Add</button>
+            <button onClick={()=>setShowDash(true)}  style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:11,padding:"7px 4px",textAlign:"center",fontWeight:800}}>📊<br/>Dash</button>
+            <button onClick={()=>setShowCalls(true)} style={{...btn(stats.overdue>0?"#f59e0b":NAPA_YELLOW,NAPA_NAVY),fontSize:11,padding:"7px 4px",textAlign:"center",fontWeight:800}}>📋<br/>Calls</button>
+            <button onClick={()=>setShowRoute(true)} style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:11,padding:"7px 4px",textAlign:"center",fontWeight:800}}>🗺️<br/>Route</button>
+            <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?NAPA_RED:NAPA_YELLOW,stats.reorders>0?"#fff":NAPA_NAVY),fontSize:11,padding:"7px 4px",textAlign:"center",fontWeight:800}}>📦<br/>Inv{stats.reorders>0?` ${stats.reorders}`:""}</button>
+            <button onClick={()=>setShowAdd(true)}   style={{...btn(NAPA_RED),fontSize:11,padding:"7px 4px",textAlign:"center",fontWeight:800}}>➕<br/>Add</button>
           </div>
         </div>
       </div>
@@ -1060,7 +1080,7 @@ export default function App(){
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 24px"}}>
         <div style={{maxWidth:1440,margin:"0 auto",display:"flex"}}>
           {[["all","📋 All Accounts"],["stocking",`📦 Stocking (${stats.stocking})`]].map(([tab,label])=>(
-            <button key={tab} onClick={()=>setActiveTab(tab)} style={{padding:"12px 20px",border:"none",background:"none",borderBottom:activeTab===tab?"3px solid #cc0000":"3px solid transparent",color:activeTab===tab?"#cc0000":"#64748b",fontWeight:700,fontSize:13,cursor:"pointer",transition:"all 0.15s"}}>{label}</button>
+            <button key={tab} onClick={()=>setActiveTab(tab)} style={{padding:"12px 20px",border:"none",background:"none",borderBottom:activeTab===tab?`3px solid ${NAPA_YELLOW}`:"3px solid transparent",color:activeTab===tab?NAPA_NAVY:"#64748b",fontWeight:700,fontSize:13,cursor:"pointer",transition:"all 0.15s"}}>{label}</button>
           ))}
         </div>
       </div>
@@ -1083,7 +1103,7 @@ export default function App(){
           </select>
           <div style={{display:"flex",border:"1.5px solid #e2e8f0",borderRadius:8,overflow:"hidden"}}>
             {[["grid","⊞"],["list","☰"]].map(([v,icon])=>(
-              <button key={v} onClick={()=>setViewMode(v)} style={{padding:"7px 13px",border:"none",background:viewMode===v?"#1e293b":"#fff",color:viewMode===v?"#fff":"#64748b",cursor:"pointer",fontSize:15}}>{icon}</button>
+              <button key={v} onClick={()=>setViewMode(v)} style={{padding:"7px 13px",border:"none",background:viewMode===v?NAPA_NAVY:"#fff",color:viewMode===v?"#fff":"#64748b",cursor:"pointer",fontSize:15}}>{icon}</button>
             ))}
           </div>
           <div style={{color:"#64748b",fontSize:12,fontWeight:600}}>{filtered.length} shown</div>
@@ -1106,14 +1126,14 @@ export default function App(){
               const t=getSpendTier(c.monthlySpend);
               const days=daysUntil(c.nextFollowUp);
               const isOverdue=days!==null&&days<0;
-              return<div key={c.id} onClick={()=>setSelected(c)} style={{background:"#fff",borderRadius:12,padding:16,cursor:"pointer",border:"1.5px solid #e2e8f0",borderLeft:`4px solid ${t.dot}`,boxShadow:"0 1px 3px rgba(0,0,0,0.05)",transition:"all 0.15s"}}
+              return<div key={c.id} onClick={()=>setSelected(c)} style={{background:"#fff",borderRadius:12,padding:16,cursor:"pointer",border:"1.5px solid #dde5f4",borderLeft:`4px solid ${t.dot}`,boxShadow:"0 1px 4px rgba(8,29,99,0.07)",transition:"all 0.15s"}}
                 onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 6px 16px rgba(0,0,0,0.1)";e.currentTarget.style.transform="translateY(-1px)";}}
                 onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,0.05)";e.currentTarget.style.transform="none";}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                   <div style={{fontSize:22}}>{typeIcons[c.type]||"🏪"}</div>
                   <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>
                     <PriBadge p={c.priority}/>{c.status&&<StsBadge s={c.status}/>}
-                    {c.isStocking&&<span style={{background:"#7c3aed22",color:"#7c3aed",border:"1px solid #7c3aed44",padding:"2px 6px",borderRadius:20,fontSize:10,fontWeight:700}}>📦</span>}
+                    {c.isStocking&&<span style={{background:NAPA_YELLOW+"33",color:NAPA_NAVY,border:`1px solid ${NAPA_YELLOW}`,padding:"2px 6px",borderRadius:20,fontSize:10,fontWeight:700}}>📦</span>}
                   </div>
                 </div>
                 <div style={{fontWeight:800,fontSize:14,color:"#1e293b",marginBottom:2,lineHeight:1.3}}>{c.name}</div>
@@ -1136,9 +1156,9 @@ export default function App(){
           <div style={{background:"#fff",borderRadius:12,border:"1.5px solid #e2e8f0",overflow:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",minWidth:960}}>
               <thead>
-                <tr style={{background:"#f8fafc",borderBottom:"2px solid #e2e8f0"}}>
+                <tr style={{background:NAPA_NAVY,borderBottom:`2px solid ${NAPA_YELLOW}`}}>
                   {["Business","Town","Type","Acct #","Distance","Phone","Contact","Rep","Spend","Priority","Status","Follow-Up"].map(h=>(
-                    <th key={h} style={{padding:"9px 11px",fontSize:11,fontWeight:700,color:"#64748b",textAlign:"left",textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
+                    <th key={h} style={{padding:"9px 11px",fontSize:11,fontWeight:700,color:"#cbd5e1",textAlign:"left",textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
                   ))}
                 </tr>
               </thead>
