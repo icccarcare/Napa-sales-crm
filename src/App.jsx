@@ -151,10 +151,10 @@ const typeIcons = {
 const mapsUrl = addr=>`https://maps.google.com/?q=${encodeURIComponent(addr)}`;
 function multiStopMapsUrl(stops){
   if(!stops.length)return"#";
-  if(stops.length===1)return mapsUrl(stops[0].fullAddress);
-  const e=s=>encodeURIComponent(s);
-  const o=e(stops[0].fullAddress),d=e(stops[stops.length-1].fullAddress);
-  const w=stops.slice(1,-1).map(s=>e(s.fullAddress)).join("|");
+  const enc=s=>encodeURIComponent(s).replace(/%20/g,"+");
+  if(stops.length===1)return`https://maps.google.com/?q=${enc(stops[0].fullAddress)}`;
+  const o=enc(stops[0].fullAddress),d=enc(stops[stops.length-1].fullAddress);
+  const w=stops.slice(1,-1).map(s=>enc(s.fullAddress)).join("|");
   return`https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}${w?`&waypoints=${w}`:""}&travelmode=driving`;
 }
 
