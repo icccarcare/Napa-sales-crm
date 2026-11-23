@@ -520,21 +520,90 @@ function Dashboard({customers,onClose,onSelectCustomer}){
             </div>
           </div>
 
-          {/* Competitor breakdown */}
+          {/* Competitor Signal Dashboard */}
           <div style={{marginTop:20,border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-            <div style={{background:NAPA_NAVY,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#fff",borderBottom:`2px solid ${NAPA_YELLOW}`}}>⚡ Competitor Breakdown</div>
-            <div style={{padding:16,display:"flex",gap:10,flexWrap:"wrap"}}>
-              {COMPETITORS.filter(Boolean).map(comp=>{
-                const count=customers.filter(c=>c.competitor===comp).length;
-                if(!count)return null;
-                return<div key={comp} style={{background:"#fff7ed",border:"1.5px solid #fed7aa",borderRadius:10,padding:"10px 14px",textAlign:"center",minWidth:100}}>
-                  <div style={{fontWeight:900,fontSize:20,color:"#c2410c"}}>{count}</div>
-                  <div style={{fontSize:11,color:"#c2410c",fontWeight:700,marginTop:2}}>{comp}</div>
-                </div>;
-              })}
-              {!customers.some(c=>c.competitor)&&<div style={{color:"#94a3b8",fontSize:13,padding:"8px 0"}}>No competitor data yet — add it in customer profiles</div>}
+            <div style={{background:NAPA_NAVY,padding:"12px 16px",fontWeight:800,fontSize:13,color:"#fff",borderBottom:`2px solid ${NAPA_YELLOW}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span>⚡ Competitor Signal Dashboard</span>
+              <span style={{fontSize:11,fontWeight:600,color:"#94a3b8"}}>{customers.filter(c=>c.competitor).length} accounts flagged</span>
             </div>
+            {!customers.some(c=>c.competitor)&&<div style={{padding:"20px 16px",color:"#94a3b8",fontSize:13,textAlign:"center"}}>No competitor data yet — add competitor fields in customer profiles to see win/loss intelligence</div>}
+            {customers.some(c=>c.competitor)&&(
+              <div>
+                {/* Summary tiles */}
+                <div style={{padding:"12px 16px",display:"flex",gap:10,flexWrap:"wrap",borderBottom:"1px solid #f1f5f9"}}>
+                  {COMPETITORS.filter(Boolean).map(comp=>{
+                    const accs=customers.filter(c=>c.competitor===comp);
+                    if(!accs.length)return null;
+                    const hpAccs=accs.filter(c=>c.priority==="High");
+                    return(
+                      <div key={comp} style={{background:"#fff7ed",border:"1.5px solid #fed7aa",borderRadius:10,padding:"10px 14px",textAlign:"center",minWidth:110}}>
+                        <div style={{fontWeight:900,fontSize:22,color:"#c2410c"}}>{accs.length}</div>
+                        <div style={{fontSize:12,color:"#c2410c",fontWeight:700}}>{comp}</div>
+                        {hpAccs.length>0&&<div style={{fontSize:11,color:"#dc2626",fontWeight:600,marginTop:3}}>🔴 {hpAccs.length} High Pri</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Account list by competitor */}
+                {COMPETITORS.filter(Boolean).map(comp=>{
+                  const accs=customers.filter(c=>c.competitor===comp).sort((a,b)=>a.priority==="High"?-1:b.priority==="High"?1:0);
+                  if(!accs.length)return null;
+                  return(
+                    <div key={comp}>
+                      <div style={{padding:"8px 16px",background:"#fff7ed",fontWeight:700,fontSize:12,color:"#c2410c",borderBottom:"1px solid #fed7aa"}}>vs {comp} ({accs.length})</div>
+                      {accs.map(c=>(
+                        <div key={c.id} onClick={()=>{onClose();onSelectCustomer(c);}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 16px",borderBottom:"1px solid #f8f8f8",cursor:"pointer",background:"#fff"}} onMouseEnter={e=>e.currentTarget.style.background="#fff7ed"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:700,fontSize:13,color:"#1e293b"}}>{c.name}</div>
+                            <div style={{fontSize:11,color:"#64748b"}}>{c.town} · {c.type}{c.contact?` · ${c.contact}`:""}</div>
+                          </div>
+                          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                            <PriBadge p={c.priority}/>
+                            {c.status&&<StsBadge s={c.status}/>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
+          {/* Neglected Accounts in Dashboard */}
+          {(()=>{
+            const cutoff=new Date();cutoff.setDate(cutoff.getDate()-60);
+            const cutoffStr=cutoff.toISOString().split("T")[0];
+            const neglected=customers.filter(c=>{
+              const last=c.lastVisit&&c.lastCall?(c.lastVisit>c.lastCall?c.lastVisit:c.lastCall):(c.lastVisit||c.lastCall||"");
+              return(c.status==="Customer"||c.status==="Active")&&(!last||last<cutoffStr);
+            });
+            if(!neglected.length)return null;
+            return(
+              <div style={{marginTop:20,border:"1.5px solid #fed7aa",borderRadius:12,overflow:"hidden"}}>
+                <div style={{background:"#ea580c",padding:"12px 16px",fontWeight:800,fontSize:13,color:"#fff",borderBottom:"2px solid #f97316",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span>⏰ Neglected Customers (60+ days no contact)</span>
+                  <span style={{background:"rgba(255,255,255,0.2)",padding:"2px 10px",borderRadius:20,fontSize:12}}>{neglected.length}</span>
+                </div>
+                {neglected.map(c=>{
+                  const last=c.lastVisit&&c.lastCall?(c.lastVisit>c.lastCall?c.lastVisit:c.lastCall):(c.lastVisit||c.lastCall||"");
+                  const days=last?Math.floor((new Date()-new Date(last+"T12:00:00"))/(1000*60*60*24)):null;
+                  return(
+                    <div key={c.id} onClick={()=>{onClose();onSelectCustomer(c);}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid #fff7ed",cursor:"pointer",background:"#fff"}} onMouseEnter={e=>e.currentTarget.style.background="#fff7ed"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:13,color:"#1e293b"}}>{c.name}</div>
+                        <div style={{fontSize:11,color:"#64748b"}}>{c.town} · {c.type}</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:12,fontWeight:700,color:"#ea580c"}}>{days?`${days}d no contact`:"Never logged"}</div>
+                        <PriBadge p={c.priority}/>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {/* Rep assignment */}
           {REPS.filter(Boolean).some(r=>customers.some(c=>c.repName===r))&&(
@@ -900,6 +969,295 @@ function DetailModal({customer,onClose,onSave,onDelete}){
   );
 }
 
+// ─── QUICK VISIT LOG ─────────────────────────────────────────────────────────
+function QuickVisitLog({customer,onSave,onClose}){
+  const [note,setNote]=useState("");
+  const [visitDate,setVisitDate]=useState(today());
+  const [followUp,setFollowUp]=useState(()=>{const d=new Date();d.setDate(d.getDate()+14);return d.toISOString().split("T")[0];});
+  const save=()=>{
+    if(!note.trim())return;
+    const entry={id:Date.now(),date:visitDate,note:`✅ VISIT: ${note.trim()}`,rep:customer.repName||""};
+    const updated={...customer,lastVisit:visitDate,nextFollowUp:followUp,callLog:[...(customer.callLog||[]),entry]};
+    onSave(updated);
+    onClose();
+  };
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:0}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#fff",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:560,padding:24,paddingBottom:32,boxShadow:"0 -8px 40px rgba(0,0,0,0.25)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div>
+            <div style={{fontWeight:800,fontSize:16,color:NAPA_NAVY}}>⚡ Quick Visit Log</div>
+            <div style={{fontSize:12,color:"#64748b",marginTop:2}}>{customer.name}</div>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:22,color:"#94a3b8",cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{marginBottom:12}}>
+          <label style={lbl}>Visit Notes</label>
+          <textarea value={note} onChange={e=>setNote(e.target.value)} autoFocus rows={3}
+            placeholder="Quick note — what was discussed, what they need, any wins..."
+            style={{...inp,resize:"none",fontSize:14}}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}>
+          <div>
+            <label style={lbl}>Visit Date</label>
+            <input type="date" value={visitDate} onChange={e=>setVisitDate(e.target.value)} style={inp}/>
+          </div>
+          <div>
+            <label style={lbl}>Next Follow-Up</label>
+            <input type="date" value={followUp} onChange={e=>setFollowUp(e.target.value)} style={inp}/>
+          </div>
+        </div>
+        <button onClick={save} style={{...btn(NAPA_NAVY),width:"100%",padding:"13px 0",fontSize:15,borderRadius:10}}>
+          ✅ Log Visit & Set Follow-Up
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ACTIVE PROMOTIONS ───────────────────────────────────────────────────────
+const RETAIL_PROMOS=[
+  {cat:"🔧 Milwaukee M18 Power Tools",items:[
+    "Buy 2 M18 batteries → Get a M18 battery FREE (BOGO)",
+    "Buy M18 FUEL combo kit → Get FREE charger + tool bag",
+    "M18 tool kits 20–35% off MSRP through Dec 31",
+    "Show BURNCO / construction accounts: cordless impact & ratchet bundles",
+  ]},
+  {cat:"🛢️ Motor Oil — Valvoline & Mobil 1",items:[
+    "Valvoline All grades (conventional, synthetic blend, full syn) — Nov/Dec special pricing",
+    "5qt jugs AND 1qt singles both on deal — push bulk buys",
+    "Mobil 1 Full Synthetic 5W-20 / 5W-30 / 0W-20 — special wholesale pricing",
+    "Great pitch for quick lubes (Al's, Big Brand) stocking up before holiday rush",
+  ]},
+  {cat:"🌧️ Rain-X Wiper Blades",items:[
+    "Save $12–$15 per pair vs list (38–42% off)",
+    "Rain-X Latitude & Beam blade lines both on promo",
+    "Best pitch: tire shops, quick lubes — high-ticket upsell at oil change",
+  ]},
+  {cat:"🔩 NAPA Platinum Oil Filters",items:[
+    "Save $5 per filter vs regular NAPA pricing",
+    "Push to ALL repair shops — highest margin filter in the lineup",
+    "21348 (most popular fitment) — keep stocking accounts at par",
+  ]},
+  {cat:"🔋 Energizer Batteries",items:[
+    "$5 customer rebate — EnergizerHoliday5.com — valid through Dec 31",
+    "Max, Ultimate Lithium, and Recharge lines all rebate-eligible",
+    "Great holiday gift pitch for counter customers",
+  ]},
+  {cat:"🔨 Carlyle Tools",items:[
+    "20–40% off across the Carlyle hand tool lineup",
+    "Best pitch: shops buying Christmas gifts for techs, or restocking toolbox staples",
+    "Mechanics sets, ratchets, sockets — all on deal",
+  ]},
+  {cat:"🔋 Booster PAC / Truck PAC Jump Starters",items:[
+    "25–29% off professional-grade jump starters",
+    "Best pitch: fleet accounts, trucking (Frank Bartel, A-Z Bus), towing (All American)",
+    "Truck PAC ES6000 and ES1224 — high-margin, great value for shops that boost daily",
+  ]},
+  {cat:"🚗 Chemical Guys Car Wash Kit",items:[
+    "Kit priced at $49.99 — ready to go, makes an excellent shop gift",
+    "Push to detailing shops and customer-facing repair shops",
+  ]},
+  {cat:"🏆 NAPA Rewards — YETI Cooler Giveaway",items:[
+    "Customers enrolled in NAPA Rewards get entries to win YETI Tundra cooler",
+    "Great reason to sign up ANY account that isn't enrolled yet",
+    "AAA member discount available at counter — remind shops with AAA customers",
+  ]},
+];
+
+function ActivePromotions({onClose}){
+  const [tab,setTab]=useState("retail");
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:720,maxHeight:"93vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.3)"}}>
+        <div style={{background:NAPA_NAVY,padding:"20px 24px",borderRadius:"16px 16px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`3px solid ${NAPA_YELLOW}`,position:"sticky",top:0,zIndex:10}}>
+          <div>
+            <div style={{color:"#fff",fontWeight:800,fontSize:18}}>🏷️ Active Promotions</div>
+            <div style={{color:"#94a3b8",fontSize:12,marginTop:2}}>Nov 1 – Dec 31, 2026 · North Texas Territory</div>
+          </div>
+          <button onClick={onClose} style={{color:"#94a3b8",background:"none",border:"none",fontSize:22,cursor:"pointer"}}>✕</button>
+        </div>
+        {/* Sub-tabs */}
+        <div style={{display:"flex",borderBottom:"1px solid #e2e8f0",background:"#fff",position:"sticky",top:69,zIndex:9}}>
+          {[["retail","📋 Retail Sales Driver"],["realdeals","🏭 Real Deals Q4"]].map(([k,label])=>(
+            <button key={k} onClick={()=>setTab(k)} style={{padding:"11px 20px",border:"none",background:"none",borderBottom:tab===k?`3px solid ${NAPA_YELLOW}`:"3px solid transparent",color:tab===k?NAPA_NAVY:"#64748b",fontWeight:700,fontSize:13,cursor:"pointer"}}>{label}</button>
+          ))}
+        </div>
+        <div style={{padding:"20px 24px"}}>
+          {tab==="retail"&&(
+            <>
+              <div style={{background:"#fff7ed",border:"1.5px solid #fed7aa",borderRadius:10,padding:"10px 16px",marginBottom:18,fontSize:13,color:"#92400e",fontWeight:600}}>
+                💡 All deals run Nov 1 – Dec 31, 2026. Push these on every stop.
+              </div>
+              {RETAIL_PROMOS.map((sec,i)=>(
+                <div key={i} style={{marginBottom:16,border:"1.5px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
+                  <div style={{background:NAPA_PANEL,padding:"10px 14px",fontWeight:800,fontSize:13,color:NAPA_NAVY,borderLeft:`4px solid ${NAPA_YELLOW}`}}>{sec.cat}</div>
+                  <ul style={{margin:0,padding:"10px 14px 10px 30px",listStyle:"disc"}}>
+                    {sec.items.map((item,j)=><li key={j} style={{fontSize:13,color:"#374151",lineHeight:1.6,marginBottom:4}}>{item}</li>)}
+                  </ul>
+                </div>
+              ))}
+            </>
+          )}
+          {tab==="realdeals"&&(
+            <>
+              <div style={{background:"#f0f9ff",border:"1.5px solid #bae6fd",borderRadius:10,padding:"16px",marginBottom:18}}>
+                <div style={{fontWeight:800,fontSize:14,color:"#0c4a6e",marginBottom:6}}>🏭 Real Deals Q4 2026 — Shop Equipment Catalog</div>
+                <div style={{fontSize:13,color:"#0369a1",lineHeight:1.6,marginBottom:12}}>
+                  The Real Deals catalog features shop-based equipment sales: lifts, alignment equipment, air tools, shop supplies, and professional-grade equipment for your commercial accounts. Oct 1 – Dec 31, 2026.
+                </div>
+                <a href="https://realdeals.napaecatalog.com/Real-Deals-4Q-2026/1/" target="_blank" rel="noopener noreferrer"
+                  style={{display:"inline-flex",alignItems:"center",gap:6,background:NAPA_NAVY,color:"#fff",padding:"10px 16px",borderRadius:8,fontWeight:700,fontSize:13,textDecoration:"none"}}>
+                  📖 Open Real Deals Q4 Catalog →
+                </a>
+              </div>
+              <div style={{background:"#fff7ed",border:"1.5px solid #fed7aa",borderRadius:10,padding:"12px 16px",marginBottom:16}}>
+                <div style={{fontWeight:700,fontSize:13,color:"#92400e",marginBottom:6}}>💡 Best Accounts to Pitch Real Deals Equipment:</div>
+                <ul style={{margin:0,padding:"0 0 0 20px",listStyle:"disc"}}>
+                  {["BURNCO Ready-Mix — interested in Milwaukee tools, could want equipment","Fifth Gear Automotive — high-volume shop, always investing in equipment","Providence Automotive (Aubrey) — large shop, buys professional equipment","Big Brand Tire & Service locations — multi-bay shops, real equipment buyers","FCS Construction — fleet operation, shop equipment relevant","Any shop that mentioned needing a lift, alignment rack, or compressor in notes"].map((item,i)=>(
+                    <li key={i} style={{fontSize:13,color:"#374151",lineHeight:1.6,marginBottom:4}}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div style={{background:"#f8fafc",border:"1.5px solid #e2e8f0",borderRadius:10,padding:"12px 16px"}}>
+                <div style={{fontWeight:700,fontSize:12,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>To add full Real Deals content here</div>
+                <div style={{fontSize:13,color:"#475569",lineHeight:1.6}}>Upload the Real Deals Q4 2026 PDF to this project folder (same as the Retail Sales Driver PDF) and I can read it and fill in all the details automatically.</div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── NEGLECTED ACCOUNTS ALERT ────────────────────────────────────────────────
+function NeglectedAlert({customers,onSelectCustomer,onDismiss}){
+  const cutoff=new Date();cutoff.setDate(cutoff.getDate()-60);
+  const cutoffStr=cutoff.toISOString().split("T")[0];
+  const neglected=customers.filter(c=>{
+    const lastActivity=c.lastVisit&&c.lastCall?(c.lastVisit>c.lastCall?c.lastVisit:c.lastCall):(c.lastVisit||c.lastCall||"");
+    return(c.status==="Customer"||c.status==="Active")&&(!lastActivity||lastActivity<cutoffStr);
+  }).sort((a,b)=>{
+    const getL=c=>c.lastVisit&&c.lastCall?(c.lastVisit>c.lastCall?c.lastVisit:c.lastCall):(c.lastVisit||c.lastCall||"");
+    return(getL(a)||"0").localeCompare(getL(b)||"0");
+  });
+  if(!neglected.length)return null;
+  return(
+    <div style={{margin:"0 24px 12px",background:"#fff7ed",border:"1.5px solid #f97316",borderRadius:12,overflow:"hidden"}}>
+      <div style={{background:"#ea580c",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{color:"#fff",fontWeight:800,fontSize:13}}>⚠️ {neglected.length} Customer{neglected.length!==1?"s":""} Not Contacted in 60+ Days</div>
+        <button onClick={onDismiss} style={{background:"none",border:"none",color:"rgba(255,255,255,0.7)",cursor:"pointer",fontSize:16,fontWeight:700}}>✕</button>
+      </div>
+      <div style={{display:"flex",gap:0,overflowX:"auto",padding:"10px 12px"}}>
+        {neglected.slice(0,8).map(c=>{
+          const lastActivity=c.lastVisit&&c.lastCall?(c.lastVisit>c.lastCall?c.lastVisit:c.lastCall):(c.lastVisit||c.lastCall||"");
+          const daysSince=lastActivity?Math.floor((new Date()-new Date(lastActivity+"T12:00:00"))/(1000*60*60*24)):null;
+          return(
+            <div key={c.id} onClick={()=>onSelectCustomer(c)} style={{flexShrink:0,marginRight:8,background:"#fff",border:"1.5px solid #fed7aa",borderRadius:8,padding:"8px 12px",cursor:"pointer",minWidth:140,maxWidth:160}} onMouseEnter={e=>e.currentTarget.style.borderColor="#f97316"} onMouseLeave={e=>e.currentTarget.style.borderColor="#fed7aa"}>
+              <div style={{fontWeight:700,fontSize:12,color:"#1e293b",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+              <div style={{fontSize:11,color:"#64748b"}}>{c.town}</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#ea580c",marginTop:3}}>{daysSince?`${daysSince}d ago`:"Never logged"}</div>
+            </div>
+          );
+        })}
+        {neglected.length>8&&<div style={{flexShrink:0,display:"flex",alignItems:"center",padding:"0 8px",fontSize:12,color:"#ea580c",fontWeight:700}}>+{neglected.length-8} more</div>}
+      </div>
+    </div>
+  );
+}
+
+// ─── PRE-VISIT BRIEF ─────────────────────────────────────────────────────────
+function PreVisitBrief({customer,onClose,onQuickLog}){
+  const lastActivity=customer.lastVisit&&customer.lastCall?(customer.lastVisit>customer.lastCall?customer.lastVisit:customer.lastCall):(customer.lastVisit||customer.lastCall||"");
+  const daysSince=lastActivity?Math.floor((new Date()-new Date(lastActivity+"T12:00:00"))/(1000*60*60*24)):null;
+  const recentLogs=(customer.callLog||[]).slice().sort((a,b)=>b.date<a.date?-1:1).slice(0,3);
+  const hasInventoryAlerts=(customer.inventory||[]).some(i=>i.currentStock<i.parLevel);
+  const isOverdue=customer.nextFollowUp&&customer.nextFollowUp<today();
+
+  // Smart pitch suggestions based on account type
+  const pitches=[];
+  if(["Auto Repair","Tire Shop","Quick Lube","Mechanic"].includes(customer.type)){pitches.push("🛢️ Valvoline / Mobil 1 oil deal — Nov/Dec pricing","🔩 NAPA Platinum Oil Filters — $5 off");}
+  if(["Auto Repair","Performance","Restoration","Diesel Repair","Diesel Truck"].includes(customer.type)){pitches.push("🔧 Milwaukee M18 tools — BOGO battery deal");}
+  if(["Tire Shop","Quick Lube","Auto Repair"].includes(customer.type)){pitches.push("🌧️ Rain-X wipers — 38-42% off, great upsell");}
+  if(["Construction","Construction Fleet","Municipal Fleet","Trucking","Fleet / Bus","Towing"].includes(customer.type)){pitches.push("🔋 Booster PAC / Truck PAC — 25-29% off","🏭 Real Deals Q4 shop equipment catalog");}
+  if(customer.isStocking&&hasInventoryAlerts){pitches.unshift("🔴 INVENTORY ALERT — check par levels before leaving");}
+  if(customer.notes&&customer.notes.toLowerCase().includes("milwaukee")){pitches.unshift("🔧 Customer mentioned Milwaukee tools — push M18 BOGO deal");}
+  if(!customer.acctNum){pitches.push("📋 No POS account # yet — open an account today");}
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,0.3)"}}>
+        <div style={{background:NAPA_NAVY,padding:"18px 24px",borderRadius:"16px 16px 0 0",borderBottom:`3px solid ${NAPA_YELLOW}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{color:"#94a3b8",fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Pre-Visit Brief</div>
+            <div style={{color:"#fff",fontWeight:800,fontSize:16}}>{customer.name}</div>
+          </div>
+          <button onClick={onClose} style={{color:"#94a3b8",background:"none",border:"none",fontSize:22,cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{padding:20}}>
+          {/* Status bar */}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+            <PriBadge p={customer.priority}/>{customer.status&&<StsBadge s={customer.status}/>}<SpendBadge spend={customer.monthlySpend}/>
+            {customer.isStocking&&<span style={{background:NAPA_YELLOW+"33",color:NAPA_NAVY,border:`1px solid ${NAPA_YELLOW}`,padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:700}}>📦 Stocking</span>}
+          </div>
+
+          {/* Contact */}
+          <div style={{marginBottom:12,padding:"10px 14px",background:"#f8fafc",borderRadius:10,border:"1.5px solid #e2e8f0"}}>
+            <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+              {customer.contact&&<div style={{fontSize:13,color:"#374151"}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:700}}>CONTACT </span>{customer.contact}</div>}
+              {customer.phone&&<a href={`tel:${customer.phone}`} style={{fontSize:13,color:"#16a34a",fontWeight:700,textDecoration:"none"}}>📞 {customer.phone}</a>}
+              {customer.acctNum&&<div style={{fontSize:13,color:"#374151"}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:700}}>ACCT </span>#{customer.acctNum}</div>}
+              {customer.competitor&&<div style={{fontSize:13,color:"#dc2626",fontWeight:700}}>⚡ vs {customer.competitor}</div>}
+            </div>
+          </div>
+
+          {/* Last contact */}
+          <div style={{marginBottom:12,padding:"10px 14px",background:isOverdue?"#fff5f5":daysSince&&daysSince>30?"#fff7ed":"#f0fdf4",borderRadius:10,border:`1.5px solid ${isOverdue?"#fca5a5":daysSince&&daysSince>30?"#fed7aa":"#bbf7d0"}`}}>
+            <div style={{fontWeight:700,fontSize:12,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Last Contact</div>
+            <div style={{fontSize:14,fontWeight:700,color:isOverdue?"#dc2626":daysSince&&daysSince>30?"#ea580c":"#16a34a"}}>
+              {lastActivity?`${formatDate(lastActivity)} (${daysSince}d ago)`:"Never logged"}
+            </div>
+            {isOverdue&&<div style={{fontSize:12,color:"#dc2626",fontWeight:600,marginTop:3}}>⚠️ Follow-up was due {formatDate(customer.nextFollowUp)}</div>}
+            {!isOverdue&&customer.nextFollowUp&&<div style={{fontSize:12,color:"#64748b",marginTop:3}}>📅 Next follow-up: {formatDate(customer.nextFollowUp)}</div>}
+          </div>
+
+          {/* Notes */}
+          {customer.notes&&<div style={{marginBottom:12,padding:"10px 14px",background:"#f8fafc",borderRadius:10,border:"1.5px solid #e2e8f0"}}>
+            <div style={{fontWeight:700,fontSize:12,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Account Notes</div>
+            <div style={{fontSize:13,color:"#374151",lineHeight:1.5}}>{customer.notes}</div>
+          </div>}
+
+          {/* What to pitch */}
+          {pitches.length>0&&<div style={{marginBottom:12,padding:"10px 14px",background:"#fffbeb",borderRadius:10,border:"1.5px solid #fcd34d"}}>
+            <div style={{fontWeight:700,fontSize:12,color:"#92400e",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>💡 Pitch Today</div>
+            <ul style={{margin:0,padding:"0 0 0 18px",listStyle:"disc"}}>
+              {pitches.map((p,i)=><li key={i} style={{fontSize:13,color:"#374151",lineHeight:1.6,marginBottom:3}}>{p}</li>)}
+            </ul>
+          </div>}
+
+          {/* Recent activity */}
+          {recentLogs.length>0&&<div style={{marginBottom:16,padding:"10px 14px",background:"#f8fafc",borderRadius:10,border:"1.5px solid #e2e8f0"}}>
+            <div style={{fontWeight:700,fontSize:12,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>Recent Activity</div>
+            {recentLogs.map(log=>(
+              <div key={log.id} style={{marginBottom:6,paddingBottom:6,borderBottom:"1px solid #f1f5f9"}}>
+                <div style={{fontSize:11,color:"#94a3b8",fontWeight:600}}>{formatDate(log.date)}</div>
+                <div style={{fontSize:13,color:"#374151"}}>{log.note}</div>
+              </div>
+            ))}
+          </div>}
+
+          {/* Actions */}
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>{onClose();onQuickLog();}} style={{...btn(NAPA_NAVY),flex:1,padding:"11px 0",fontSize:14}}>⚡ Log This Visit</button>
+            {customer.phone&&<a href={`tel:${customer.phone}`} style={{...btn("#16a34a"),textDecoration:"none",padding:"11px 16px",fontSize:14}}>📞 Call</a>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── ROUTE PLANNER ────────────────────────────────────────────────────────────
 function RoutePlanner({customers,onClose}){
   const [stops,setStops]=useState([]);
@@ -990,6 +1348,10 @@ export default function App(){
   const [showPrint,setShowPrint]   = useState(false);
   const [showDash,setShowDash]     = useState(false);
   const [showCalls,setShowCalls]   = useState(false);
+  const [showPromos,setShowPromos] = useState(false);
+  const [showBrief,setShowBrief]   = useState(null);
+  const [showQuickLog,setShowQuickLog] = useState(null);
+  const [hideNeglected,setHideNeglected] = useState(false);
   const [activeTab,setActiveTab]   = useState("all");
 
   const updC=useCallback(u=>setCustomers(cs=>cs.map(c=>c.id===u.id?u:c)),[]);
@@ -1040,11 +1402,12 @@ export default function App(){
             ))}
           </div>
           <div style={{display:"flex",gap:7,alignItems:"center"}}>
-            <button onClick={()=>setShowDash(true)}  style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>📊 Dashboard</button>
-            <button onClick={()=>setShowCalls(true)} style={{...btn(stats.overdue>0?"#f59e0b":NAPA_YELLOW,NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>📋 Call List{stats.overdue>0?` (${stats.overdue})`:""}</button>
-            <button onClick={()=>setShowRoute(true)} style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>🗺️ Route</button>
-            <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?NAPA_RED:NAPA_YELLOW,stats.reorders>0?"#fff":NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>📦 Inventory{stats.reorders>0?` (${stats.reorders})`:""}</button>
-            <button onClick={()=>setShowAdd(true)}   style={{...btn(NAPA_RED),fontSize:12,padding:"8px 14px",fontWeight:800}}>➕ Add</button>
+            <button onClick={()=>setShowDash(true)}   style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>📊 Dashboard</button>
+            <button onClick={()=>setShowCalls(true)}  style={{...btn(stats.overdue>0?"#f59e0b":NAPA_YELLOW,NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>📋 Call List{stats.overdue>0?` (${stats.overdue})`:""}</button>
+            <button onClick={()=>setShowPromos(true)} style={{...btn("#f97316"),fontSize:12,padding:"8px 14px",fontWeight:800}}>🏷️ Promos</button>
+            <button onClick={()=>setShowRoute(true)}  style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>🗺️ Route</button>
+            <button onClick={()=>setShowInv(true)}    style={{...btn(stats.reorders>0?NAPA_RED:NAPA_YELLOW,stats.reorders>0?"#fff":NAPA_NAVY),fontSize:12,padding:"8px 14px",fontWeight:800}}>📦 Inventory{stats.reorders>0?` (${stats.reorders})`:""}</button>
+            <button onClick={()=>setShowAdd(true)}    style={{...btn(NAPA_RED),fontSize:12,padding:"8px 14px",fontWeight:800}}>➕ Add</button>
           </div>
         </div>
         {/* Mobile header — two rows */}
@@ -1060,12 +1423,13 @@ export default function App(){
               </div>
             ))}
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:5}}>
-            <button onClick={()=>setShowDash(true)}  style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:11,padding:"7px 4px",textAlign:"center",fontWeight:800}}>📊<br/>Dash</button>
-            <button onClick={()=>setShowCalls(true)} style={{...btn(stats.overdue>0?"#f59e0b":NAPA_YELLOW,NAPA_NAVY),fontSize:11,padding:"7px 4px",textAlign:"center",fontWeight:800}}>📋<br/>Calls</button>
-            <button onClick={()=>setShowRoute(true)} style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:11,padding:"7px 4px",textAlign:"center",fontWeight:800}}>🗺️<br/>Route</button>
-            <button onClick={()=>setShowInv(true)}   style={{...btn(stats.reorders>0?NAPA_RED:NAPA_YELLOW,stats.reorders>0?"#fff":NAPA_NAVY),fontSize:11,padding:"7px 4px",textAlign:"center",fontWeight:800}}>📦<br/>Inv{stats.reorders>0?` ${stats.reorders}`:""}</button>
-            <button onClick={()=>setShowAdd(true)}   style={{...btn(NAPA_RED),fontSize:11,padding:"7px 4px",textAlign:"center",fontWeight:800}}>➕<br/>Add</button>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr 1fr",gap:4}}>
+            <button onClick={()=>setShowDash(true)}   style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:10,padding:"7px 2px",textAlign:"center",fontWeight:800}}>📊<br/>Dash</button>
+            <button onClick={()=>setShowCalls(true)}  style={{...btn(stats.overdue>0?"#f59e0b":NAPA_YELLOW,NAPA_NAVY),fontSize:10,padding:"7px 2px",textAlign:"center",fontWeight:800}}>📋<br/>Calls</button>
+            <button onClick={()=>setShowPromos(true)} style={{...btn("#f97316"),fontSize:10,padding:"7px 2px",textAlign:"center",fontWeight:800}}>🏷️<br/>Promos</button>
+            <button onClick={()=>setShowRoute(true)}  style={{...btn(NAPA_YELLOW,NAPA_NAVY),fontSize:10,padding:"7px 2px",textAlign:"center",fontWeight:800}}>🗺️<br/>Route</button>
+            <button onClick={()=>setShowInv(true)}    style={{...btn(stats.reorders>0?NAPA_RED:NAPA_YELLOW,stats.reorders>0?"#fff":NAPA_NAVY),fontSize:10,padding:"7px 2px",textAlign:"center",fontWeight:800}}>📦<br/>Inv{stats.reorders>0?` ${stats.reorders}`:""}</button>
+            <button onClick={()=>setShowAdd(true)}    style={{...btn(NAPA_RED),fontSize:10,padding:"7px 2px",textAlign:"center",fontWeight:800}}>➕<br/>Add</button>
           </div>
         </div>
       </div>
@@ -1118,6 +1482,9 @@ export default function App(){
         </div>
       </div>
 
+      {/* ── NEGLECTED ACCOUNTS ALERT ── */}
+      {!hideNeglected&&<NeglectedAlert customers={customers} onSelectCustomer={c=>setSelected(c)} onDismiss={()=>setHideNeglected(true)}/>}
+
       {/* ── CONTENT ── */}
       <div style={{maxWidth:1440,margin:"0 auto",padding:"16px 24px"}}>
         {viewMode==="grid"?(
@@ -1149,6 +1516,11 @@ export default function App(){
                 </div>
                 {c.nextFollowUp&&<div style={{marginTop:7,padding:"4px 8px",background:isOverdue?"#fee2e2":"#fef3c7",borderRadius:6,fontSize:11,color:isOverdue?"#991b1b":"#92400e",fontWeight:600}}>{isOverdue?`⚠️ Overdue: ${formatDate(c.nextFollowUp)}`:`📅 Follow-up: ${formatDate(c.nextFollowUp)}`}</div>}
                 {c.isStocking&&(c.inventory||[]).some(i=>i.currentStock<i.parLevel)&&<div style={{marginTop:5,padding:"4px 8px",background:"#fee2e2",borderRadius:6,fontSize:11,color:"#991b1b",fontWeight:700}}>🔴 Inventory reorder needed</div>}
+                {/* Quick actions */}
+                <div style={{marginTop:8,display:"flex",gap:5}} onClick={e=>e.stopPropagation()}>
+                  <button onClick={e=>{e.stopPropagation();setShowBrief(c);}} style={{flex:1,padding:"5px 0",background:"#f0f9ff",border:"1.5px solid #bae6fd",borderRadius:7,fontSize:11,fontWeight:700,color:"#0369a1",cursor:"pointer"}}>📋 Brief</button>
+                  <button onClick={e=>{e.stopPropagation();setShowQuickLog(c);}} style={{flex:1,padding:"5px 0",background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:7,fontSize:11,fontWeight:700,color:"#16a34a",cursor:"pointer"}}>⚡ Log Visit</button>
+                </div>
               </div>;
             })}
           </div>
@@ -1196,6 +1568,9 @@ export default function App(){
       {showPrint  &&<InvPrintModal customers={customers}          onClose={()=>setShowPrint(false)}/>}
       {showDash   &&<Dashboard   customers={customers} onClose={()=>setShowDash(false)} onSelectCustomer={c=>{setSelected(c);}}/>}
       {showCalls  &&<WeeklyCallList customers={customers} onClose={()=>setShowCalls(false)} onSelectCustomer={c=>{setSelected(c);}}/>}
+      {showPromos &&<ActivePromotions onClose={()=>setShowPromos(false)}/>}
+      {showBrief  &&<PreVisitBrief customer={showBrief} onClose={()=>setShowBrief(null)} onQuickLog={()=>{setShowQuickLog(showBrief);setShowBrief(null);}}/>}
+      {showQuickLog&&<QuickVisitLog customer={showQuickLog} onSave={c=>{updC(c);}} onClose={()=>setShowQuickLog(null)}/>}
     </div>
   );
 }
