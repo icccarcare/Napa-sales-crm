@@ -247,6 +247,7 @@ function CountMode({customer,onFinish,onClose}){
   const [counts,setCounts]=useState({});      // part id -> what was typed in On Hand
   const [step,setStep]=useState("count");     // "count" or "summary"
   const [sortPart,setSortPart]=useState(true);  // true = sort each category by Part # (number order)
+  const [collapsed,setCollapsed]=useState({});   // category name -> true when folded closed
 
   // Group parts by category (the 4 main ones first, then any others)
   const catList=[...COUNT_ORDER,...INV_CATEGORIES.filter(c=>!COUNT_ORDER.includes(c))];
@@ -346,7 +347,11 @@ function CountMode({customer,onFinish,onClose}){
       </div>
 
       {step==="count"&&<>
-        <div style={{padding:"8px 12px",background:"#fff",borderBottom:"1.5px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{padding:"8px 12px",background:"#fff",borderBottom:"1.5px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <button onClick={()=>setCollapsed(groups.reduce((a,g)=>({...a,[g.cat]:true}),{}))} style={{padding:"6px 10px",fontSize:12,fontWeight:700,borderRadius:8,cursor:"pointer",border:"1.5px solid #94a3b8",background:"#fff",color:"#475569"}}>Hide all</button>
+            <button onClick={()=>setCollapsed({})} style={{padding:"6px 10px",fontSize:12,fontWeight:700,borderRadius:8,cursor:"pointer",border:"1.5px solid #94a3b8",background:"#fff",color:"#475569"}}>Show all</button>
+          </div>
           <span style={{fontSize:12,color:"#64748b",fontWeight:700}}>Sort parts by</span>
           <div style={{display:"flex",gap:6}}>
             {[[true,"Part # (1, 2, 3…)"],[false,"As entered"]].map(([val,label])=>(
@@ -357,7 +362,11 @@ function CountMode({customer,onFinish,onClose}){
         <div style={{flex:1,overflowY:"auto",padding:12,WebkitOverflowScrolling:"touch"}}>
           {groups.map(g=>(
             <div key={g.cat} style={{marginBottom:14,background:"#fff",borderRadius:10,border:"1.5px solid #e2e8f0",overflow:"hidden"}}>
-              <div style={{background:NAPA_PANEL,padding:"8px 12px",borderLeft:`4px solid ${NAPA_YELLOW}`,fontWeight:800,fontSize:14,color:NAPA_NAVY}}>{g.cat} <span style={{color:"#64748b",fontWeight:500,fontSize:12}}>({g.rows.length})</span></div>
+              <div onClick={()=>setCollapsed(c=>({...c,[g.cat]:!c[g.cat]}))} style={{background:NAPA_PANEL,padding:"12px",borderLeft:`4px solid ${NAPA_YELLOW}`,fontWeight:800,fontSize:14,color:NAPA_NAVY,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
+                <span>{g.cat} <span style={{color:"#64748b",fontWeight:500,fontSize:12}}>({g.rows.filter(isCounted).length} of {g.rows.length} counted)</span></span>
+                <span style={{color:"#64748b",fontSize:14}}>{collapsed[g.cat]?"▶ Show":"▼ Hide"}</span>
+              </div>
+              {!collapsed[g.cat]&&<>
               <div style={{display:"grid",gridTemplateColumns:"1fr 64px 92px",gap:8,padding:"6px 12px",fontSize:10,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em"}}>
                 <div>Part #</div><div style={{textAlign:"center"}}>Min Stock</div><div style={{textAlign:"center"}}>On Hand</div>
               </div>
@@ -376,6 +385,7 @@ function CountMode({customer,onFinish,onClose}){
                   </div>
                 );
               })}
+              </>}
             </div>
           ))}
           {items.length===0&&<div style={{textAlign:"center",color:"#94a3b8",padding:40}}>No parts on this account yet. Add parts first.</div>}
