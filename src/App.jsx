@@ -314,7 +314,7 @@ function CountMode({customer,onFinish,onClose}){
       @media print{button{display:none;}}
     </style></head><body>
     <div class="header">
-      <div class="logo">NAPA</div>
+      <img src="${NAPA_LOGO_B64}" alt="NAPA" style="height:52px;width:auto"/>
       <div style="text-align:right"><h2>Stocking Reorder</h2><div style="font-size:13px;color:#64748b">${today}</div></div>
     </div>
     <div class="info">
@@ -453,7 +453,7 @@ function InvPrintModal({customers,onClose}){
       @media print{button{display:none;}}
     </style></head><body>
     <div class="header">
-      <div><div class="logo">NAPA</div></div>
+      <div><img src="${NAPA_LOGO_B64}" alt="NAPA" style="height:52px;width:auto"/></div>
       <div style="text-align:right">
         <h2>Stocking Account Reorder Sheet</h2>
         <div class="meta">NAPA Auto Parts — North Texas Territory</div>
