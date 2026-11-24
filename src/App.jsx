@@ -120,8 +120,10 @@ function NapaBrand(){
 // ─── INVENTORY PANEL ──────────────────────────────────────────────────────────
 const INV_CATEGORIES = ["Air Filters","Batteries","Cabin Air Filters","Chemicals","Consumables","Fuel Filters","Oil Filters","Other","Wiper Blades"];
 
-function InvPanel({customer,onUpdate}){
+function InvPanel({customer,onUpdate,onPersist}){
   const [items,setItems]=useState(customer.inventory||[]);
+  const [showCount,setShowCount]=useState(false);
+  const [sortBy,setSortBy]=useState("desc");   // "desc" = by description, "part" = by part # in number order
   const [np,setNp]=useState({partNum:"",description:"",parLevel:"",currentStock:"",category:"Oil Filters"});
   const [editingId,setEditingId]=useState(null);
   const [editBuf,setEditBuf]=useState({partNum:"",description:"",parLevel:"",category:""});
@@ -143,7 +145,7 @@ function InvPanel({customer,onUpdate}){
 
   // Group items by category
   const grouped = INV_CATEGORIES.reduce((acc,cat)=>{
-    acc[cat]=items.filter(i=>(i.category||"Other")===cat).sort((a,b)=>a.description.localeCompare(b.description)||((a.partNum||"").localeCompare(b.partNum||"")));
+    acc[cat]=items.filter(i=>(i.category||"Other")===cat).sort((a,b)=>sortBy==="part"?((a.partNum||"").localeCompare(b.partNum||"",undefined,{numeric:true})||a.description.localeCompare(b.description)):(a.description.localeCompare(b.description)||((a.partNum||"").localeCompare(b.partNum||""))));
     return acc;
   },{});
 
@@ -153,10 +155,18 @@ function InvPanel({customer,onUpdate}){
   return(
     <div style={{marginTop:14,padding:14,background:"#f8fafc",borderRadius:10,border:"1.5px solid #e2e8f0"}}>
       <div style={{fontWeight:800,fontSize:13,color:"#1e293b",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        📦 Inventory ({totalItems} items)
+        <span>📦 Inventory ({totalItems} items)</span>
+        {items.length>0&&<button onClick={()=>setShowCount(true)} style={{...btn(NAPA_RED),padding:"7px 12px",fontSize:12}}>📋 Count Inventory</button>}
         {orderItems.length>0&&<span style={{background:"#fee2e2",color:"#991b1b",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:700}}>⚠️ {orderItems.length} need reorder</span>}
       </div>
 
+      <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",gap:6,marginBottom:8}}>
+        <span style={{fontSize:11,fontWeight:700,color:"#64748b"}}>Sort parts by</span>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{...inp,width:"auto",fontSize:12,padding:"4px 8px"}}>
+          <option value="desc">Description</option>
+          <option value="part">Part # (number order)</option>
+        </select>
+      </div>
       {/* Category sections */}
       {INV_CATEGORIES.map(cat=>{
         const catItems=grouped[cat];
@@ -177,7 +187,7 @@ function InvPanel({customer,onUpdate}){
             {isOpen&&(
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",minWidth:480,borderCollapse:"collapse",fontSize:12}}>
-                  <thead><tr style={{background:NAPA_NAVY}}>{["Part #","Description","Par","Stock","Order","Actions"].map(h=><th key={h} style={{padding:"5px 8px",textAlign:"left",fontWeight:700,color:"#cbd5e1",fontSize:11}}>{h}</th>)}</tr></thead>
+                  <thead><tr style={{background:NAPA_NAVY}}>{["Part #","Description","Min Stock","On Hand","Order","Actions"].map(h=><th key={h} style={{padding:"5px 8px",textAlign:"left",fontWeight:700,color:"#cbd5e1",fontSize:11}}>{h}</th>)}</tr></thead>
                   <tbody>{catItems.map(item=>{
                     const low=item.currentStock<item.parLevel;
                     const orderQty=low?item.parLevel-item.currentStock:0;
@@ -215,16 +225,201 @@ function InvPanel({customer,onUpdate}){
           </div>
           <div><label style={{...lbl,fontSize:10}}>Part #</label><input value={np.partNum} onChange={e=>setNp(p=>({...p,partNum:e.target.value}))} placeholder="21348" style={{...inp,fontSize:12}}/></div>
           <div><label style={{...lbl,fontSize:10}}>Description</label><input value={np.description} onChange={e=>setNp(p=>({...p,description:e.target.value}))} placeholder="Oil Filter" style={{...inp,fontSize:12}}/></div>
-          <div><label style={{...lbl,fontSize:10}}>Par</label><input type="number" value={np.parLevel} onChange={e=>setNp(p=>({...p,parLevel:e.target.value}))} placeholder="12" style={{...inp,fontSize:12}}/></div>
-          <div><label style={{...lbl,fontSize:10}}>Stock</label><input type="number" value={np.currentStock} onChange={e=>setNp(p=>({...p,currentStock:e.target.value}))} placeholder="0" style={{...inp,fontSize:12}}/></div>
+          <div><label style={{...lbl,fontSize:10}}>Min Stock</label><input type="number" value={np.parLevel} onChange={e=>setNp(p=>({...p,parLevel:e.target.value}))} placeholder="12" style={{...inp,fontSize:12}}/></div>
+          <div><label style={{...lbl,fontSize:10}}>On Hand</label><input type="number" value={np.currentStock} onChange={e=>setNp(p=>({...p,currentStock:e.target.value}))} placeholder="0" style={{...inp,fontSize:12}}/></div>
           <button onClick={add} style={{...btn(NAPA_NAVY),padding:"8px 12px",fontSize:12,marginTop:16}}>+ Add</button>
         </div>
       </div>
       <ReorderHistoryPanel customer={customer} onUpdate={onUpdate}/>
+      {showCount&&<CountMode customer={{...customer,inventory:items}} onClose={()=>setShowCount(false)} onFinish={upd=>{save(upd);if(onPersist)onPersist({...customer,inventory:upd});}}/>}
     </div>
   );
 }
 
+
+// ─── COUNT MODE: mobile-friendly inventory count + reorder summary ────────────
+const COUNT_ORDER=["Oil Filters","Air Filters","Cabin Air Filters","Fuel Filters"];
+const REORDER_EMAIL="pilotpointautoparts@gmail.com";
+const escHtml=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+function CountMode({customer,onFinish,onClose}){
+  const items=customer.inventory||[];
+  const [counts,setCounts]=useState({});      // part id -> what was typed in On Hand
+  const [step,setStep]=useState("count");     // "count" or "summary"
+  const [sortPart,setSortPart]=useState(true);  // true = sort each category by Part # (number order)
+
+  // Group parts by category (the 4 main ones first, then any others)
+  const catList=[...COUNT_ORDER,...INV_CATEGORIES.filter(c=>!COUNT_ORDER.includes(c))];
+  const groups=catList.map(cat=>({
+    cat,
+    rows:items.filter(i=>(i.category||"Other")===cat).sort((a,b)=>sortPart?((a.partNum||"").localeCompare(b.partNum||"",undefined,{numeric:true})||(a.description||"").localeCompare(b.description||"")):0)
+  })).filter(g=>g.rows.length>0);
+
+  const isCounted=i=>counts[i.id]!==undefined&&counts[i.id]!=="";
+  const onHandOf=i=>parseInt(counts[i.id])||0;
+  const countedTotal=items.filter(isCounted).length;
+  const notCounted=items.length-countedTotal;
+
+  // Only parts that were counted AND are below Min Stock
+  const reorder=groups.flatMap(g=>g.rows.filter(i=>isCounted(i)&&onHandOf(i)<i.parLevel).map(i=>({category:g.cat,partNum:i.partNum||"—",description:i.description||"",qty:i.parLevel-onHandOf(i)})));
+
+  const today=new Date().toLocaleDateString("en-US");
+  const address=customer.fullAddress||[customer.address,customer.town&&`${customer.town}, TX`].filter(Boolean).join(", ")||"—";
+
+  const review=()=>{
+    if(notCounted>0&&!window.confirm(`${notCounted} part${notCounted!==1?"s":""} not counted yet. They will be left out of the reorder. Continue anyway?`))return;
+    // Save the new On Hand numbers for every part that was counted
+    onFinish(items.map(i=>isCounted(i)?{...i,currentStock:onHandOf(i)}:i));
+    setStep("summary");
+  };
+
+  const emailReorder=()=>{
+    const subject=`Stocking Reorder - ${customer.name} - ${today}`;
+    const lines=[
+      "STOCKING REORDER",
+      "",
+      `Customer: ${customer.name}`,
+      `Address: ${address}`,
+      `Contact: ${customer.contact||"—"}`,
+      `Phone: ${customer.phone||"—"}`,
+      `Account #: ${customer.acctNum||"—"}`,
+      `Date: ${today}`,
+      "",
+      "PARTS TO REORDER",
+      "Category | Part # | Quantity Needed",
+      "---------------------------------",
+      ...reorder.map(r=>`${r.category} | ${r.partNum} | ${r.qty}`),
+      "",
+      `Total: ${reorder.length} part number${reorder.length!==1?"s":""}, ${reorder.reduce((s,r)=>s+r.qty,0)} pieces`,
+    ];
+    window.location.href=`mailto:${REORDER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join("\n"))}`;
+  };
+
+  const printSheet=()=>{
+    const w=window.open("","_blank");
+    if(!w){alert("Your browser blocked the print window. Allow pop-ups for this site and tap Print again.");return;}
+    const rows=reorder.map(r=>`<tr><td>${escHtml(r.category)}</td><td><strong>${escHtml(r.partNum)}</strong></td><td>${escHtml(r.description)}</td><td style="text-align:center;font-weight:700;font-size:15px">${r.qty}</td></tr>`).join("");
+    w.document.write(`<!DOCTYPE html><html><head><title>Stocking Reorder - ${escHtml(customer.name)} - ${today}</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:24px;color:#1e293b;}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid #cc0000;}
+      .logo{background:#cc0000;color:white;font-weight:900;font-size:24px;padding:6px 14px;border-radius:4px;letter-spacing:1px;}
+      h2{margin:0 0 4px;font-size:18px;}
+      .info{font-size:14px;line-height:1.7;margin-bottom:20px;}
+      table{width:100%;border-collapse:collapse;font-size:13px;}
+      th{background:#1e293b;color:white;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;}
+      td{padding:8px 10px;border-bottom:1px solid #e2e8f0;}
+      tr:nth-child(even) td{background:#f8fafc;}
+      .footer{margin-top:20px;font-size:11px;color:#94a3b8;text-align:center;}
+      @media print{button{display:none;}}
+    </style></head><body>
+    <div class="header">
+      <div class="logo">NAPA</div>
+      <div style="text-align:right"><h2>Stocking Reorder</h2><div style="font-size:13px;color:#64748b">${today}</div></div>
+    </div>
+    <div class="info">
+      <div><strong>Customer:</strong> ${escHtml(customer.name)}</div>
+      <div><strong>Address:</strong> ${escHtml(address)}</div>
+      <div><strong>Contact:</strong> ${escHtml(customer.contact||"—")}</div>
+      <div><strong>Phone:</strong> ${escHtml(customer.phone||"—")}</div>
+      <div><strong>Account #:</strong> ${escHtml(customer.acctNum||"—")}</div>
+    </div>
+    <table><thead><tr><th>Category</th><th>Part #</th><th>Description</th><th style="text-align:center">Qty Needed</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="footer">NAPA Auto Parts · Pilot Point, TX</div>
+    <br/><button onclick="window.print()" style="padding:10px 24px;background:#cc0000;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">🖨️ Print / Save as PDF</button>
+    <button onclick="window.close()" style="padding:10px 24px;background:#64748b;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer">Close</button>
+    </body></html>`);
+    w.document.close();
+  };
+
+  const bigBtn=(bg,color="#fff")=>({...btn(bg,color),width:"100%",padding:"14px 18px",fontSize:16,borderRadius:10});
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#f3f6fb",zIndex:300,display:"flex",flexDirection:"column"}}>
+      {/* Header */}
+      <div style={{background:NAPA_NAVY,padding:"12px 16px",borderBottom:`3px solid ${NAPA_YELLOW}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+        <div style={{minWidth:0}}>
+          <div style={{color:"#fff",fontWeight:800,fontSize:16,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{step==="count"?"📋 Count Inventory":"🧾 Reorder Summary"}</div>
+          <div style={{color:"#94a3b8",fontSize:12,marginTop:2}}>{customer.name}{step==="count"?` · ${countedTotal} of ${items.length} counted`:` · ${today}`}</div>
+        </div>
+        <button onClick={onClose} style={{background:"none",border:"1.5px solid #64748b",color:"#cbd5e1",borderRadius:8,padding:"6px 12px",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>{step==="count"?"Cancel":"Done"}</button>
+      </div>
+
+      {step==="count"&&<>
+        <div style={{padding:"8px 12px",background:"#fff",borderBottom:"1.5px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:12,color:"#64748b",fontWeight:700}}>Sort parts by</span>
+          <div style={{display:"flex",gap:6}}>
+            {[[true,"Part # (1, 2, 3…)"],[false,"As entered"]].map(([val,label])=>(
+              <button key={label} onClick={()=>setSortPart(val)} style={{padding:"6px 10px",fontSize:12,fontWeight:700,borderRadius:8,cursor:"pointer",border:`1.5px solid ${NAPA_NAVY}`,background:sortPart===val?NAPA_NAVY:"#fff",color:sortPart===val?"#fff":NAPA_NAVY}}>{label}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:12,WebkitOverflowScrolling:"touch"}}>
+          {groups.map(g=>(
+            <div key={g.cat} style={{marginBottom:14,background:"#fff",borderRadius:10,border:"1.5px solid #e2e8f0",overflow:"hidden"}}>
+              <div style={{background:NAPA_PANEL,padding:"8px 12px",borderLeft:`4px solid ${NAPA_YELLOW}`,fontWeight:800,fontSize:14,color:NAPA_NAVY}}>{g.cat} <span style={{color:"#64748b",fontWeight:500,fontSize:12}}>({g.rows.length})</span></div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 64px 92px",gap:8,padding:"6px 12px",fontSize:10,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em"}}>
+                <div>Part #</div><div style={{textAlign:"center"}}>Min Stock</div><div style={{textAlign:"center"}}>On Hand</div>
+              </div>
+              {g.rows.map(i=>{
+                const low=isCounted(i)&&onHandOf(i)<i.parLevel;
+                return(
+                  <div key={i.id} style={{display:"grid",gridTemplateColumns:"1fr 64px 92px",gap:8,alignItems:"center",padding:"8px 12px",borderTop:"1px solid #f1f5f9",background:low?"#fff1f2":"#fff"}}>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontWeight:800,fontSize:16,color:"#1e293b"}}>{i.partNum||"—"}</div>
+                      {i.description&&<div style={{fontSize:11,color:"#94a3b8",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{i.description}</div>}
+                    </div>
+                    <div style={{textAlign:"center",fontWeight:700,fontSize:16,color:"#64748b"}}>{i.parLevel}</div>
+                    <input type="number" inputMode="numeric" pattern="[0-9]*" min="0" value={counts[i.id]??""} placeholder="—"
+                      onChange={e=>setCounts(c=>({...c,[i.id]:e.target.value}))}
+                      style={{width:"100%",boxSizing:"border-box",height:46,fontSize:20,fontWeight:700,textAlign:"center",border:`2px solid ${low?"#cc0000":isCounted(i)?"#16a34a":"#c8d3e8"}`,borderRadius:8,color:NAPA_NAVY}}/>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          {items.length===0&&<div style={{textAlign:"center",color:"#94a3b8",padding:40}}>No parts on this account yet. Add parts first.</div>}
+        </div>
+        <div style={{padding:12,background:"#fff",borderTop:"1.5px solid #e2e8f0"}}>
+          <button onClick={review} disabled={countedTotal===0} style={{...bigBtn(countedTotal===0?"#cbd5e1":NAPA_RED),cursor:countedTotal===0?"not-allowed":"pointer"}}>Done Counting — See Reorder →</button>
+        </div>
+      </>}
+
+      {step==="summary"&&(
+        <div style={{flex:1,overflowY:"auto",padding:12}}>
+          {notCounted>0&&<div style={{background:"#fef3c7",border:"1.5px solid #fcd34d",borderRadius:10,padding:"10px 12px",marginBottom:12,fontSize:13,color:"#92400e",fontWeight:600}}>⚠️ {notCounted} part{notCounted!==1?"s were":" was"} not counted and left off this list.</div>}
+          {reorder.length===0
+            ?<div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:12,padding:30,textAlign:"center"}}>
+              <div style={{fontSize:40}}>✅</div>
+              <div style={{fontWeight:800,fontSize:17,color:"#16a34a",marginTop:6}}>Fully stocked — nothing to reorder</div>
+              <div style={{fontSize:13,color:"#64748b",marginTop:4}}>Your counts have been saved.</div>
+            </div>
+            :<>
+              <div style={{background:"#fff",borderRadius:10,border:"1.5px solid #e2e8f0",overflow:"hidden",marginBottom:14}}>
+                <div style={{padding:"10px 12px",background:"#fff7ed",color:"#c2410c",fontWeight:800,fontSize:14}}>{reorder.length} part{reorder.length!==1?"s":""} to reorder · {reorder.reduce((s,r)=>s+r.qty,0)} pieces</div>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
+                  <thead><tr style={{background:NAPA_NAVY}}>{["Category","Part #","Qty Needed"].map((h,idx)=><th key={h} style={{padding:"8px 10px",textAlign:idx===2?"center":"left",color:"#cbd5e1",fontSize:11,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                  <tbody>{reorder.map((r,idx)=>(
+                    <tr key={idx} style={{borderBottom:"1px solid #f1f5f9"}}>
+                      <td style={{padding:"9px 10px",color:"#64748b",fontSize:13}}>{r.category}</td>
+                      <td style={{padding:"9px 10px",fontWeight:800,color:"#1e293b"}}>{r.partNum}</td>
+                      <td style={{padding:"9px 10px",textAlign:"center",fontWeight:900,fontSize:18,color:NAPA_RED}}>{r.qty}</td>
+                    </tr>))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <button onClick={emailReorder} style={bigBtn(NAPA_RED)}>✉️ Email Reorder</button>
+                <button onClick={printSheet} style={bigBtn(NAPA_NAVY)}>🖨️ Print</button>
+              </div>
+              <div style={{fontSize:11,color:"#94a3b8",textAlign:"center",marginTop:8}}>Email opens a ready-to-send message to {REORDER_EMAIL}. Tap Send in your email app.</div>
+            </>}
+          <button onClick={()=>setStep("count")} style={{...bigBtn("#f1f5f9","#374151"),border:"1.5px solid #d1d5db",marginTop:14,fontSize:14,padding:"11px 18px"}}>← Back to Counting</button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── INVENTORY PRINT / PDF ────────────────────────────────────────────────────
 function InvPrintModal({customers,onClose}){
@@ -270,7 +465,7 @@ function InvPrintModal({customers,onClose}){
     <table>
       <thead><tr>
         <th>Account</th><th>Town</th><th>Acct #</th><th>Contact</th><th>Phone</th>
-        <th>Part #</th><th>Description</th><th>Par</th><th>In Stock</th><th>Order Qty</th>
+        <th>Part #</th><th>Description</th><th>Min Stock</th><th>On Hand</th><th>Order Qty</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`}
@@ -294,7 +489,7 @@ function InvPrintModal({customers,onClose}){
             <div style={{fontSize:13,color:"#475569",lineHeight:1.7}}>
               ✅ A clean printable sheet with all items needing reorder<br/>
               ✅ Account name, number, contact, and phone for each location<br/>
-              ✅ Part numbers, descriptions, par levels, and order quantities<br/>
+              ✅ Part numbers, descriptions, min stock levels, and order quantities<br/>
               ✅ Print it or save as PDF to email to the store
             </div>
           </div>
@@ -797,7 +992,7 @@ function ReorderHistoryPanel({customer,onUpdate}){
 }
 
 // ─── CUSTOMER DETAIL MODAL ────────────────────────────────────────────────────
-function DetailModal({customer,onClose,onSave,onDelete}){
+function DetailModal({customer,onClose,onSave,onDelete,onPersist}){
   const [f,setF]=useState({...customer});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const [confirmDel,setConfirmDel]=useState(false);
@@ -887,7 +1082,7 @@ function DetailModal({customer,onClose,onSave,onDelete}){
             <div><div style={{fontWeight:700,fontSize:13,color:"#0c4a6e"}}>📦 Stocking Account</div><div style={{fontSize:12,color:"#0369a1",marginTop:2}}>Enable to track inventory and reorder alerts</div></div>
             <button onClick={()=>set("isStocking",!f.isStocking)} style={{...btn(f.isStocking?"#16a34a":"#d1d5db",f.isStocking?"#fff":"#374151"),minWidth:64}}>{f.isStocking?"ON":"OFF"}</button>
           </div>
-          {f.isStocking&&<InvPanel customer={f} onUpdate={upd=>setF(upd)}/>}
+          {f.isStocking&&<InvPanel customer={f} onUpdate={upd=>setF(upd)} onPersist={onPersist}/>}
 
           <div style={{display:"flex",gap:10,justifyContent:"space-between",marginTop:18}}>
             <div>{!confirmDel
@@ -1119,7 +1314,7 @@ function PreVisitBrief({customer,onClose,onQuickLog}){
   if(["Auto Repair","Performance","Restoration","Diesel Repair","Diesel Truck"].includes(customer.type)){pitches.push("🔧 Milwaukee M18 tools — BOGO battery deal");}
   if(["Tire Shop","Quick Lube","Auto Repair"].includes(customer.type)){pitches.push("🌧️ Rain-X wipers — 38-42% off, great upsell");}
   if(["Construction","Construction Fleet","Municipal Fleet","Trucking","Fleet / Bus","Towing"].includes(customer.type)){pitches.push("🔋 Booster PAC / Truck PAC — 25-29% off","🏭 Real Deals Q4 shop equipment catalog");}
-  if(customer.isStocking&&hasInventoryAlerts){pitches.unshift("🔴 INVENTORY ALERT — check par levels before leaving");}
+  if(customer.isStocking&&hasInventoryAlerts){pitches.unshift("🔴 INVENTORY ALERT — check min stock levels before leaving");}
   if(customer.notes&&customer.notes.toLowerCase().includes("milwaukee")){pitches.unshift("🔧 Customer mentioned Milwaukee tools — push M18 BOGO deal");}
   if(!customer.acctNum){pitches.push("📋 No POS account # yet — open an account today");}
 
@@ -1507,7 +1702,7 @@ function CRM({onSignOut}){
       </div>
 
       {/* ── MODALS ── */}
-      {selected   &&<DetailModal customer={selected} onClose={()=>setSelected(null)} onSave={c=>{updC(c);setSelected(null);}} onDelete={id=>{delC(id);setSelected(null);}}/>}
+      {selected   &&<DetailModal customer={selected} onClose={()=>setSelected(null)} onSave={c=>{updC(c);setSelected(null);}} onPersist={updC} onDelete={id=>{delC(id);setSelected(null);}}/>}
       {showAdd    &&<AddModal    onClose={()=>setShowAdd(false)}  onAdd={addC}/>}
       {showRoute  &&<RoutePlanner customers={customers}           onClose={()=>setShowRoute(false)}/>}
       {showInv    &&<InvDash     customers={customers} onUpdate={updC} onClose={()=>setShowInv(false)} onPrint={()=>{setShowInv(false);setShowPrint(true);}}/>}
