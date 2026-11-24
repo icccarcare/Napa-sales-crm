@@ -246,14 +246,14 @@ function CountMode({customer,onFinish,onClose}){
   const items=customer.inventory||[];
   const [counts,setCounts]=useState({});      // part id -> what was typed in On Hand
   const [step,setStep]=useState("count");     // "count" or "summary"
-  const [sortPart,setSortPart]=useState(true);  // true = sort each category by Part # (number order)
+  const [sortDir,setSortDir]=useState("asc");  // "asc" = Part # low to high, "desc" = high to low
   const [collapsed,setCollapsed]=useState({});   // category name -> true when folded closed
 
   // Group parts by category (the 4 main ones first, then any others)
   const catList=[...COUNT_ORDER,...INV_CATEGORIES.filter(c=>!COUNT_ORDER.includes(c))];
   const groups=catList.map(cat=>({
     cat,
-    rows:items.filter(i=>(i.category||"Other")===cat).sort((a,b)=>sortPart?((a.partNum||"").localeCompare(b.partNum||"",undefined,{numeric:true})||(a.description||"").localeCompare(b.description||"")):0)
+    rows:items.filter(i=>(i.category||"Other")===cat).sort((a,b)=>(sortDir==="desc"?-1:1)*((a.partNum||"").localeCompare(b.partNum||"",undefined,{numeric:true})||(a.description||"").localeCompare(b.description||"")))
   })).filter(g=>g.rows.length>0);
 
   const isCounted=i=>counts[i.id]!==undefined&&counts[i.id]!=="";
@@ -354,8 +354,8 @@ function CountMode({customer,onFinish,onClose}){
           </div>
           <span style={{fontSize:12,color:"#64748b",fontWeight:700}}>Sort parts by</span>
           <div style={{display:"flex",gap:6}}>
-            {[[true,"Part # (1, 2, 3…)"],[false,"As entered"]].map(([val,label])=>(
-              <button key={label} onClick={()=>setSortPart(val)} style={{padding:"6px 10px",fontSize:12,fontWeight:700,borderRadius:8,cursor:"pointer",border:`1.5px solid ${NAPA_NAVY}`,background:sortPart===val?NAPA_NAVY:"#fff",color:sortPart===val?"#fff":NAPA_NAVY}}>{label}</button>
+            {[["asc","Part # low → high"],["desc","Part # high → low"]].map(([val,label])=>(
+              <button key={label} onClick={()=>setSortDir(val)} style={{padding:"6px 10px",fontSize:12,fontWeight:700,borderRadius:8,cursor:"pointer",border:`1.5px solid ${NAPA_NAVY}`,background:sortDir===val?NAPA_NAVY:"#fff",color:sortDir===val?"#fff":NAPA_NAVY}}>{label}</button>
             ))}
           </div>
         </div>
