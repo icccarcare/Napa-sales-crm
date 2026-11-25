@@ -4,26 +4,36 @@ import Login from "./Login";
 import { loadCustomers, saveCustomer, insertCustomer, removeCustomer } from "./db";
 
 // ─── SPEND TIERS ─────────────────────────────────────────────────────────────
+// Tiers are based on average monthly sales (last 6 full months). The database
+// calculates each customer's tier automatically when the monthly sales import is applied.
 const SPEND_TIERS = [
-  { value:"1500+",    label:"$1,500+",    color:"#16a34a", bg:"#dcfce7", dot:"#16a34a" },
-  { value:"750-1500", label:"$750–1,500", color:"#0891b2", bg:"#cffafe", dot:"#0891b2" },
-  { value:"500-750",  label:"$500–750",   color:"#d97706", bg:"#fef3c7", dot:"#d97706" },
-  { value:"250-500",  label:"$250–500",   color:"#ea580c", bg:"#ffedd5", dot:"#ea580c" },
-  { value:"<250",     label:"<$250",      color:"#dc2626", bg:"#fee2e2", dot:"#dc2626" },
-  { value:"",         label:"Prospect",   color:"#6b7280", bg:"#f3f4f6", dot:"#9ca3af" },
+  { value:"15000+",     label:"$15K+",     color:"#7c3aed", bg:"#ede9fe", dot:"#7c3aed" },
+  { value:"5000-15000", label:"$5K–15K",   color:"#16a34a", bg:"#dcfce7", dot:"#16a34a" },
+  { value:"2500-5000",  label:"$2.5K–5K",  color:"#2563eb", bg:"#dbeafe", dot:"#2563eb" },
+  { value:"1000-2500",  label:"$1K–2.5K",  color:"#0891b2", bg:"#cffafe", dot:"#0891b2" },
+  { value:"500-1000",   label:"$500–1K",   color:"#d97706", bg:"#fef3c7", dot:"#d97706" },
+  { value:"250-500",    label:"$250–500",  color:"#ea580c", bg:"#ffedd5", dot:"#ea580c" },
+  { value:"<250",       label:"<$250",     color:"#dc2626", bg:"#fee2e2", dot:"#dc2626" },
+  { value:"",           label:"No Sales",  color:"#6b7280", bg:"#f3f4f6", dot:"#9ca3af" },
 ];
+// Old tier values (before Nov 2026) mapped to the closest new tier
+const LEGACY_TIERS = { "1500+":"1000-2500", "750-1500":"500-1000", "500-750":"500-1000" };
 const getSpendTier = spend => {
-  if(!spend) return SPEND_TIERS[5];
-  return SPEND_TIERS.find(t=>t.value===spend)||SPEND_TIERS[5];
+  const last = SPEND_TIERS[SPEND_TIERS.length-1];
+  if(!spend) return last;
+  const v = LEGACY_TIERS[spend]||spend;
+  return SPEND_TIERS.find(t=>t.value===v)||last;
 };
 // Spend tier dropdown options with colors embedded in label
 const SPEND_OPTIONS = [
-  {value:"",        label:"— Select Spend Tier —", color:"#6b7280"},
-  {value:"1500+",   label:"🟢  $1,500+ / month",    color:"#16a34a"},
-  {value:"750-1500",label:"🔵  $750 – $1,500 / mo", color:"#0891b2"},
-  {value:"500-750", label:"🟡  $500 – $750 / mo",   color:"#d97706"},
-  {value:"250-500", label:"🟠  $250 – $500 / mo",   color:"#ea580c"},
-  {value:"<250",    label:"🔴  Under $250 / mo",    color:"#dc2626"},
+  {value:"",           label:"— Select Spend Tier —",     color:"#6b7280"},
+  {value:"15000+",     label:"🟣  $15,000+ / month",       color:"#7c3aed"},
+  {value:"5000-15000", label:"🟢  $5,000 – $15,000 / mo",  color:"#16a34a"},
+  {value:"2500-5000",  label:"🔵  $2,500 – $5,000 / mo",   color:"#2563eb"},
+  {value:"1000-2500",  label:"🔷  $1,000 – $2,500 / mo",   color:"#0891b2"},
+  {value:"500-1000",   label:"🟡  $500 – $1,000 / mo",     color:"#d97706"},
+  {value:"250-500",    label:"🟠  $250 – $500 / mo",       color:"#ea580c"},
+  {value:"<250",       label:"🔴  Under $250 / mo",        color:"#dc2626"},
 ];
 // ─── NAPA HOME BASE ───────────────────────────────────────────────────────────
 const NAPA_STORE = { name:"NAPA Auto Parts - Pilot Point", address:"1333 US-377, Pilot Point, TX 76258", lat:33.3998, lng:-96.9601 };
